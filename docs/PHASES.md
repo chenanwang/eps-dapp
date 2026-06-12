@@ -15,7 +15,7 @@ Claude Code: work ONE task at a time, top-down, within the current phase. Update
 ## P1 — Subscriptions & quotas — GATE: tier quota correct on dashboard; webhook replay-safe; comp grant works
 | ID | Task | Acceptance criteria | Status | SHA | Notes |
 |---|---|---|---|---|---|
-| T-101 | Prisma: Organization, Subscription, WebhookEvent | Migration applies; relations enforced | NOT STARTED | | |
+| T-101 | Prisma: Organization, Subscription, WebhookEvent | Migration applies; relations enforced | DONE | _pending_ | Added `Organization` (id, `clerkOrgId` @unique, name, createdAt), `Subscription` (id, `orgId` FK → Organization with `onDelete: Cascade` + `@@index`, tierId, `status` enum `SubscriptionStatus` ACTIVE/CANCELED/PAST_DUE, periodStart, periodEnd, `usageCount` Int @default(0)), and `WebhookEvent` (id, `eventId` @unique, processedAt) to `prisma/schema.prisma`. Migration `20260612200900_add_org_sub_webhook` created. Verified locally against `postgres:16-alpine`: `prisma validate` clean, `migrate deploy` applies both migrations, and `migrate diff --from-migrations --to-schema-datamodel` reports "No difference detected" (no drift). |
 | T-102 | scripts/stripe-bootstrap.ts (Tier1 $200 / Tier2 $600 / Tier3 $1000 + EARLYADOPTER50, test mode) | Idempotent re-run; price IDs documented in .env.example | NOT STARTED | | |
 | T-103 | Subscription checkout + promo code field | Subscription-mode session; promo applies 50% | NOT STARTED | | |
 | T-104 | Webhook handler: signature verify + event-id dedupe | Replayed event is a no-op (test asserts) | NOT STARTED | | |
