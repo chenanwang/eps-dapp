@@ -57,3 +57,17 @@ model WebhookEvent {
   eventId     String   @unique
   processedAt DateTime @default(now())
 }
+
+/// Append-only audit trail. Every state transition writes one row in the SAME
+/// DB transaction as the change it records (CLAUDE.md hard rule #5). `actorId`
+/// is the verified Clerk user id that performed the action; `targetId` is the
+/// subject of the action (e.g. the granted org); `metadata` carries
+/// action-specific detail.
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  actorId   String
+  targetId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
