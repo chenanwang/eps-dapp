@@ -4,7 +4,6 @@ import {
   Keypair,
   SystemProgram,
   Transaction,
-  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
 
@@ -12,6 +11,7 @@ import { assertValidRecipient } from "@/lib/solana/validate-address";
 import type {
   ChainAdapter,
   ChainDeliveryResult,
+  ConfirmationResult,
   DeliverParams,
 } from "@/lib/chain/types";
 
@@ -64,10 +64,12 @@ export class SolanaAdapter implements ChainAdapter {
   }
 
   /**
-   * Build, send, and confirm a transfer + memo transaction at `finalized`,
-   * then re-read it to report the slot and block time.
+   * Build, sign, and send the transfer + memo transaction WITHOUT awaiting
+   * confirmation, returning the signature so the caller can persist it before
+   * confirming (hard rule #4). `Connection.sendTransaction` populates a recent
+   * blockhash and the fee payer before broadcasting.
    */
-  async deliver(params: DeliverParams): Promise<ChainDeliveryResult> {
+  async send(params: DeliverParams): Promise<string> {
     // Never send to an off-curve / malformed address (a PDA can't hold a
     // signable balance, so funds would be unrecoverable).
     const recipient = assertValidRecipient(params.recipientWallet);
@@ -81,21 +83,38 @@ export class SolanaAdapter implements ChainAdapter {
       createMemoInstruction(params.memoParts.join(" | "), [this.signer.publicKey]),
     );
 
-    const signature = await sendAndConfirmTransaction(this.connection, tx, [this.signer], {
-      commitment: "finalized",
-    });
+    return this.connection.sendTransaction(tx, [this.signer]);
+  }
 
-    // Re-read the finalized tx for the authoritative slot / blockTime.
+  /**
+   * Poll the cluster until `signature` is `finalized`, then re-read the tx for
+   * the authoritative slot / blockTime. Confirmation is keyed on the signature
+   * alone, so a worker resumed in a fresh process (which no longer holds the
+   * original blockhash) can still confirm a tx an earlier process sent.
+   */
+  async confirm(signature: string): Promise<ConfirmationResult> {
+    await this.connection.confirmTransaction(signature, "finalized");
+
     const confirmed = await this.connection.getTransaction(signature, {
       commitment: "finalized",
       maxSupportedTransactionVersion: 0,
     });
 
     return {
-      signature,
       slot: confirmed?.slot ?? 0,
       blockTime: confirmed?.blockTime ?? null,
     };
+  }
+
+  /**
+   * Convenience composition of {@link send} + {@link confirm}. The worker uses
+   * the two halves directly so it can persist the signature between them
+   * (hard rule #4); this is kept for callers that don't need that guarantee.
+   */
+  async deliver(params: DeliverParams): Promise<ChainDeliveryResult> {
+    const signature = await this.send(params);
+    const confirmation = await this.confirm(signature);
+    return { signature, ...confirmation };
   }
 }
 

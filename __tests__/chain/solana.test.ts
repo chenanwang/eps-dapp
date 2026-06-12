@@ -3,14 +3,16 @@ import bs58 from "bs58";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the network surface of web3.js so the unit suite never opens a socket:
-// `Connection` becomes an inert handle and `sendAndConfirmTransaction` is a spy.
-// Everything else (Keypair, PublicKey, SystemProgram, Transaction) is the real
-// implementation so transaction-building logic is exercised for real.
-const { sendAndConfirmTransaction, getTransaction } = vi.hoisted(() => ({
-  sendAndConfirmTransaction: vi.fn(async (...args: unknown[]) => {
+// `Connection` becomes an inert handle whose `sendTransaction` /
+// `confirmTransaction` / `getTransaction` are spies. Everything else (Keypair,
+// PublicKey, SystemProgram, Transaction) is the real implementation so
+// transaction-building logic is exercised for real.
+const { sendTransaction, confirmTransaction, getTransaction } = vi.hoisted(() => ({
+  sendTransaction: vi.fn(async (...args: unknown[]) => {
     void args;
     return "sig_111";
   }),
+  confirmTransaction: vi.fn(async () => ({ value: { err: null } })),
   getTransaction: vi.fn(async () => ({ slot: 4242, blockTime: 1_700_000_000 })),
 }));
 
@@ -19,9 +21,10 @@ vi.mock("@solana/web3.js", async (importActual) => {
   return {
     ...actual,
     Connection: class {
+      sendTransaction = sendTransaction;
+      confirmTransaction = confirmTransaction;
       getTransaction = getTransaction;
     },
-    sendAndConfirmTransaction,
   };
 });
 
@@ -50,9 +53,61 @@ describe("SolanaAdapter.assertNotMainnet (hard rule #2)", () => {
   });
 });
 
-describe("SolanaAdapter.deliver", () => {
+describe("SolanaAdapter.send / confirm (persist-sig-before-confirm, T-304)", () => {
   beforeEach(() => {
-    sendAndConfirmTransaction.mockClear();
+    sendTransaction.mockClear();
+    confirmTransaction.mockClear();
+    getTransaction.mockClear();
+  });
+
+  it("send broadcasts a transfer+memo tx and returns the signature WITHOUT confirming", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+    const recipient = Keypair.generate().publicKey.toBase58();
+
+    const signature = await adapter.send({
+      recipientWallet: recipient,
+      lamports: 890_880n,
+      memoParts: ["notice:https://x.test/n/1", "svc:rec_1"],
+    });
+
+    expect(signature).toBe("sig_111");
+    expect(sendTransaction).toHaveBeenCalledTimes(1);
+    // send must NOT confirm — that is a separate step so the caller can persist
+    // the signature in between (hard rule #4).
+    expect(confirmTransaction).not.toHaveBeenCalled();
+    // The built tx carries exactly two instructions: transfer + memo.
+    const tx = sendTransaction.mock.calls[0][0] as unknown as { instructions: unknown[] };
+    expect(tx.instructions).toHaveLength(2);
+  });
+
+  it("send rejects an off-curve (PDA-style) recipient before broadcasting", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+    await expect(
+      adapter.send({
+        recipientWallet: "not-a-valid-address!!!",
+        lamports: 1n,
+        memoParts: ["x"],
+      }),
+    ).rejects.toThrow();
+    expect(sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("confirm finalizes a signature and reads back slot/blockTime (no re-send)", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+
+    const result = await adapter.confirm("sig_persisted");
+
+    expect(confirmTransaction).toHaveBeenCalledWith("sig_persisted", "finalized");
+    expect(getTransaction).toHaveBeenCalledTimes(1);
+    expect(sendTransaction).not.toHaveBeenCalled();
+    expect(result).toEqual({ slot: 4242, blockTime: 1_700_000_000 });
+  });
+});
+
+describe("SolanaAdapter.deliver (send + confirm convenience)", () => {
+  beforeEach(() => {
+    sendTransaction.mockClear();
+    confirmTransaction.mockClear();
     getTransaction.mockClear();
   });
 
@@ -66,25 +121,9 @@ describe("SolanaAdapter.deliver", () => {
       memoParts: ["sha256:abc", "notice:https://x.test/n/1", "svc:rec_1"],
     });
 
-    expect(sendAndConfirmTransaction).toHaveBeenCalledTimes(1);
-    // The built tx carries exactly two instructions: transfer + memo.
-    const tx = sendAndConfirmTransaction.mock.calls[0][1] as unknown as {
-      instructions: unknown[];
-    };
-    expect(tx.instructions).toHaveLength(2);
+    expect(sendTransaction).toHaveBeenCalledTimes(1);
+    expect(confirmTransaction).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ signature: "sig_111", slot: 4242, blockTime: 1_700_000_000 });
-  });
-
-  it("rejects an off-curve (PDA-style) recipient before sending", async () => {
-    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
-    await expect(
-      adapter.deliver({
-        recipientWallet: "not-a-valid-address!!!",
-        lamports: 1n,
-        memoParts: ["x"],
-      }),
-    ).rejects.toThrow();
-    expect(sendAndConfirmTransaction).not.toHaveBeenCalled();
   });
 });
 

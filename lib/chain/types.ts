@@ -8,14 +8,18 @@
  * a single chokepoint for the mainnet guard (hard rule #2).
  */
 
-/** Result of a confirmed on-chain delivery. */
-export interface ChainDeliveryResult {
-  /** Transaction signature (base58). Persist this BEFORE confirming (rule #4). */
-  signature: string;
+/** The finalized-block coordinates of a confirmed transaction. */
+export interface ConfirmationResult {
   /** Slot the transaction landed in. */
   slot: number;
   /** Unix timestamp (seconds) of the block, or `null` if the cluster has none. */
   blockTime: number | null;
+}
+
+/** Result of a confirmed on-chain delivery. */
+export interface ChainDeliveryResult extends ConfirmationResult {
+  /** Transaction signature (base58). Persist this BEFORE confirming (rule #4). */
+  signature: string;
 }
 
 /** Parameters for a single service delivery transaction. */
@@ -45,7 +49,29 @@ export interface ChainAdapter {
   assertNotMainnet(): void;
 
   /**
-   * Build, send, and confirm (at `finalized`) a transfer + memo transaction.
+   * Build, sign, and send a transfer + memo transaction WITHOUT waiting for
+   * confirmation, returning the signature immediately.
+   *
+   * This is the first half of delivery, split out so the caller can persist the
+   * signature to the DB BEFORE confirming (hard rule #4). A worker that crashes
+   * after {@link send} but before {@link confirm} thus has the signature on
+   * record and resumes by re-confirming — never re-sending.
+   * @returns the transaction signature (base58).
+   */
+  send(params: DeliverParams): Promise<string>;
+
+  /**
+   * Confirm a previously-{@link send}-ed transaction at `finalized`, then read
+   * back its slot/blockTime. Safe to call on a signature from an earlier process
+   * (a resumed worker), since it polls the cluster by signature alone.
+   * @returns the finalized slot and block time.
+   */
+  confirm(signature: string): Promise<ConfirmationResult>;
+
+  /**
+   * Convenience: {@link send} then {@link confirm} a transfer + memo transaction.
+   * Prefer the split {@link send}/{@link confirm} in the worker so the signature
+   * can be persisted between the two halves (hard rule #4).
    * @returns the signature plus the slot/blockTime it confirmed in.
    */
   deliver(params: DeliverParams): Promise<ChainDeliveryResult>;
