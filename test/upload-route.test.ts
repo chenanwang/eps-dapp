@@ -1,4 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Encryption + MinIO persistence is covered in storage.test.ts; here we only
+// exercise the validation path, so stub storeDocument to avoid touching MinIO.
+const STORED = {
+  objectKey: "documents/test",
+  sha256: "a".repeat(64),
+  iv: "b".repeat(24),
+  authTag: "c".repeat(32),
+};
+vi.mock("../lib/storage", () => ({
+  storeDocument: vi.fn(async () => STORED),
+}));
+
 import { POST, MAX_UPLOAD_BYTES } from "../app/api/upload/route";
 
 // A minimal but structurally valid PDF — file-type sniffs the leading `%PDF-`
@@ -27,6 +40,8 @@ describe("POST /api/upload", () => {
       ok: true,
       mime: "application/pdf",
       ext: "pdf",
+      objectKey: STORED.objectKey,
+      sha256: STORED.sha256,
     });
   });
 

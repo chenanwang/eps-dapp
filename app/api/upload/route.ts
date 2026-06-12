@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fileTypeFromBuffer } from "file-type";
+import { storeDocument } from "@/lib/storage";
 
 // file-type inspects raw bytes, so this route must run on the Node runtime.
 export const runtime = "nodejs";
@@ -36,11 +37,12 @@ const ALLOWED_MIME: Record<string, readonly string[]> = {
  *  3. declared MIME on the document whitelist,
  *  4. magic bytes that actually match the declared MIME (anti-spoofing).
  *
- * Document bytes are never logged (CLAUDE.md hard rule #3). This endpoint only
- * validates; persistence/encryption is T-204/T-205.
+ * Document bytes are never logged (CLAUDE.md hard rule #3). On success the bytes
+ * are encrypted (AES-256-GCM) and written to a private MinIO object via
+ * `storeDocument`; only key references + the plaintext SHA-256 are returned.
  *
  * Body: `multipart/form-data` with field `file`.
- * Returns: `{ ok: true, mime, ext, size }` on success.
+ * Returns: `{ ok: true, mime, ext, size, objectKey, sha256 }` on success.
  */
 export async function POST(req: Request): Promise<Response> {
   let form: FormData;
@@ -93,10 +95,20 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  // Encrypt and persist to a private object. iv/authTag are key references that
+  // the caller (T-205) records alongside the staged service request.
+  const { objectKey, sha256, iv, authTag } = await storeDocument(
+    Buffer.from(bytes),
+  );
+
   return NextResponse.json({
     ok: true,
     mime: declaredMime,
     ext: sniffed.ext,
     size: file.size,
+    objectKey,
+    sha256,
+    iv,
+    authTag,
   });
 }

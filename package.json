@@ -19,6 +19,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1068.0",
     "@clerk/nextjs": "^7.5.2",
     "@prisma/client": "^6.1.0",
     "@solana/web3.js": "^1.98.4",
