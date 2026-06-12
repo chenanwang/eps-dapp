@@ -1,24 +1,35 @@
 {
   "name": "EPS dApp",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
   },
-  "containerEnv": {
-    "PNPM_HOME": "/home/node/.local/share/pnpm",
-    "PATH": "/home/node/.local/share/pnpm:/home/node/.local/share/solana/install/active_release/bin:${containerEnv:PATH}"
+  "forwardPorts": [
+    3000,
+    5432,
+    9000,
+    9001
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js App",
+      "onAutoForward": "notify"
+    },
+    "9001": {
+      "label": "MinIO Console"
+    }
   },
-  "onCreateCommand": "bash .devcontainer/post-create.sh",
+  "postCreateCommand": "npm install && npx prisma generate",
   "customizations": {
     "vscode": {
       "extensions": [
+        "prisma.prisma",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "Prisma.prisma",
         "bradlc.vscode-tailwindcss"
       ]
     }
-  },
-  "remoteUser": "node"
+  }
 }
