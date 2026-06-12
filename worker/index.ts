@@ -44,6 +44,13 @@ export interface ClaimableRequest {
   status: string;
   recipientWallet: string;
   noticeToken: string | null;
+  /**
+   * The on-chain signature, if one has already been sent for this row (hard
+   * rule #4). `null` on a fresh STAGED request; non-null on an IN_PROGRESS row
+   * a crashed worker left after sending — the resumed worker re-confirms it
+   * instead of re-sending.
+   */
+  txSignature: string | null;
 }
 
 /**
@@ -102,7 +109,13 @@ export async function claimNext(deps: WorkerDeps): Promise<ClaimableRequest | nu
   const candidate = await deps.db.serviceRequest.findFirst({
     where: { status: { in: CLAIMABLE } },
     orderBy: { createdAt: "asc" },
-    select: { id: true, status: true, recipientWallet: true, noticeToken: true },
+    select: {
+      id: true,
+      status: true,
+      recipientWallet: true,
+      noticeToken: true,
+      txSignature: true,
+    },
   });
   if (!candidate) return null;
 
