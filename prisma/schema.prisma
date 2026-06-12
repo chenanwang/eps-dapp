@@ -1,0 +1,20 @@
+// Prisma schema for EPS.
+// Real domain models are introduced in later phases (P1+). For P0 this holds a
+// single placeholder `Health` model so `prisma migrate dev` has something to apply.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Placeholder model so the initial migration is non-empty.
+/// Replaced/extended by real domain models in P1.
+model Health {
+  id        String   @id @default(uuid())
+  status    String   @default("ok")
+  createdAt DateTime @default(now())
+}
