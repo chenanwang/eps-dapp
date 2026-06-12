@@ -63,12 +63,14 @@ import {
 interface Row {
   id: string;
   status: string;
+  orgId: string;
   recipientWallet: string;
   noticeToken: string | null;
   documentSha256: string | null;
   txSignature: string | null;
   slot: bigint | null;
   blockTime: Date | null;
+  failureReason?: string | null;
   createdAt: number;
 }
 
@@ -116,6 +118,7 @@ function row(overrides: Partial<Row> = {}): Row {
   return {
     id: "svc_1",
     status: "STAGED",
+    orgId: "org_internal_1",
     recipientWallet: "RecipientWalletAddress1111111111111111111111",
     noticeToken: TOKEN,
     documentSha256: SHA,
@@ -128,7 +131,17 @@ function row(overrides: Partial<Row> = {}): Row {
 }
 
 function makeDeps(db: WorkerDb): WorkerDeps {
-  return { db, process: processServiceRequest, log: () => {} };
+  return {
+    db,
+    process: processServiceRequest,
+    log: () => {},
+    fail: async (row, reason) => {
+      await db.serviceRequest.update({
+        where: { id: row.id },
+        data: { status: "FAILED", failureReason: reason },
+      });
+    },
+  };
 }
 
 describe("worker resume — persist sig pre-confirm (T-304)", () => {

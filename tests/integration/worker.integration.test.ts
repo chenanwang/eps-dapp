@@ -27,9 +27,11 @@ import {
 interface Row {
   id: string;
   status: string;
+  orgId: string;
   recipientWallet: string;
   noticeToken: string | null;
   txSignature: string | null;
+  failureReason?: string | null;
   createdAt: number;
 }
 
@@ -78,6 +80,7 @@ function row(overrides: Partial<Row> = {}): Row {
   return {
     id: "svc_1",
     status: "STAGED",
+    orgId: "org_internal_1",
     recipientWallet: "RecipientWalletAddress1111111111111111111111",
     noticeToken: "0123456789abcdef0123456789abcdef",
     txSignature: null,
@@ -86,12 +89,25 @@ function row(overrides: Partial<Row> = {}): Row {
   };
 }
 
+/** A stand-in failure handler: parks the row FAILED with the reason (the real
+ * quota-restore + audit path is exercised in failure-path.integration.test.ts). */
+function failInto(db: WorkerDb): WorkerDeps["fail"] {
+  return async (claimed, reason) => {
+    await db.serviceRequest.update({
+      where: { id: claimed.id },
+      data: { status: "FAILED", failureReason: reason },
+    });
+  };
+}
+
 /** Build deps whose `process` delivers via a spy and marks the row CONFIRMED. */
 function makeDeps(rows: Row[]) {
   const sendTransaction = vi.fn(async () => "sig_delivered");
+  const db = makeDb(rows);
   const deps: WorkerDeps = {
-    db: makeDb(rows),
+    db,
     log: () => {},
+    fail: failInto(db),
     process: async (claimed, db) => {
       // Stand-in for the chain send (the real processor calls the adapter,
       // which calls sendAndConfirmTransaction under the hood).
@@ -163,11 +179,13 @@ describe("worker drain loop (T-303)", () => {
     expect(rows.every((r) => r.status === "CONFIRMED")).toBe(true);
   });
 
-  it("parks a row in FAILED when delivery throws, so drain terminates", async () => {
+  it("parks a row in FAILED (via the failure handler) when delivery throws, so drain terminates", async () => {
     const rows = [row({ status: "STAGED" })];
+    const db = makeDb(rows);
     const deps: WorkerDeps = {
-      db: makeDb(rows),
+      db,
       log: () => {},
+      fail: failInto(db),
       process: async () => {
         throw new Error("rpc down");
       },
@@ -176,7 +194,8 @@ describe("worker drain loop (T-303)", () => {
     const processed = await drain(deps);
 
     expect(processed).toBe(1); // claimed once...
-    expect(rows[0].status).toBe("FAILED"); // ...then parked terminal (T-306 adds quota restore)
+    expect(rows[0].status).toBe("FAILED"); // ...then routed through the T-306 failure handler
+    expect(rows[0].failureReason).toBe("rpc down");
   });
 
   it("claimNext loses the race when the row is already claimed (count === 0)", async () => {

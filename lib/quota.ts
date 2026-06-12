@@ -121,3 +121,51 @@ export async function checkAndDecrementQuota(
 
   return { usageCount: subscription.usageCount + 1, limit };
 }
+
+/**
+ * Restore one unit of quota to an organization — the inverse of
+ * {@link checkAndDecrementQuota}. Used when a service request that already
+ * consumed a unit at intake fails terminally (T-306): a failed delivery must
+ * not cost the customer a fulfilment, so the consumed unit is given back.
+ *
+ * `orgId` here is the INTERNAL `Organization.id` (the `Subscription.orgId` FK),
+ * which the worker reads straight off the persisted `ServiceRequest.orgId` — no
+ * Clerk-id join needed. (Intake's {@link checkAndDecrementQuota} keys on the
+ * Clerk org id instead because that is what the verified session token carries;
+ * both resolve to the same subscription.)
+ *
+ * `usageCount` counts units consumed this period, so giving a unit back means
+ * DECREMENTing it. The decrement is atomic and guarded (`usageCount > 0`) so it
+ * can never push the meter below zero, and it targets the org's ACTIVE
+ * subscription (latest period first), mirroring how the unit was consumed.
+ *
+ * Restore is best-effort and never throws: if the org has no ACTIVE
+ * subscription (e.g. canceled since intake) there is nothing to credit, so it
+ * is a no-op. Pass a transaction client as `db` to restore inside a larger
+ * `prisma.$transaction` (see {@link failServiceRequest}).
+ *
+ * @returns `true` if a unit was credited back, `false` if there was nothing to
+ *   restore (no active subscription, or the meter was already at zero).
+ */
+export async function restoreQuota(
+  orgId: string,
+  db: QuotaDbClient = prisma,
+): Promise<boolean> {
+  const subscription = await db.subscription.findFirst({
+    where: { status: "ACTIVE", orgId },
+    orderBy: { periodEnd: "desc" },
+  });
+
+  if (!subscription) {
+    return false;
+  }
+
+  // Atomic, floored credit: only decrements while the meter is above zero, so
+  // a double-restore (or a restore against a fresh period) can never underflow.
+  const { count } = await db.subscription.updateMany({
+    where: { id: subscription.id, usageCount: { gt: 0 } },
+    data: { usageCount: { decrement: 1 } },
+  });
+
+  return count > 0;
+}

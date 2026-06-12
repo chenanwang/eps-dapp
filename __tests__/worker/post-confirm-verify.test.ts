@@ -13,8 +13,11 @@ import type { ClaimableRequest, WorkerDb } from "@/worker/index";
  * lever is `getTransaction`: after the worker sends + confirms, it re-reads the
  * on-chain memo via `getTransaction` and compares it to the canonical memo it
  * intended (`${sha256}|${noticeToken}|${serviceId}`). When `getTransaction`
- * returns a transaction whose memo does NOT match, the service row must be
- * parked FAILED and an alert logged — never reported as CONFIRMED.
+ * returns a transaction whose memo does NOT match, an alert must be logged and
+ * the processor must THROW a terminal failure — never reporting CONFIRMED. The
+ * FAILED parking + quota restore is the worker's failure handler (T-306),
+ * covered in failure-path.integration.test.ts; here we assert the verification
+ * itself alerts and throws (and that the signature was still persisted first).
  */
 
 const {
@@ -82,6 +85,7 @@ function makeRow(): { row: ClaimableRequest; store: Record<string, unknown> } {
   const row: ClaimableRequest = {
     id: "svc_1",
     status: "IN_PROGRESS",
+    orgId: "org_internal_1",
     recipientWallet: Keypair.generate().publicKey.toBase58(),
     noticeToken: TOKEN,
     documentSha256: SHA,
@@ -104,19 +108,24 @@ describe("post-confirm re-read verification (T-305)", () => {
     vi.restoreAllMocks();
   });
 
-  it("parks the row FAILED + alerts when the on-chain memo does not match", async () => {
+  it("alerts and throws a terminal failure when the on-chain memo does not match", async () => {
     const { row, store } = makeRow();
     // The chain returns a memo that does NOT equal `${SHA}|${TOKEN}|svc_1`.
     getTransaction.mockResolvedValue(txWithMemo(`TAMPERED|${TOKEN}|svc_1`));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await processServiceRequest(row, makeDb(store));
+    // The mismatch is a terminal failure: it throws (the worker's failure
+    // handler then parks FAILED + restores quota — T-306), never CONFIRMED.
+    await expect(processServiceRequest(row, makeDb(store))).rejects.toThrow(
+      /does not match the expected delivery memo/,
+    );
 
     // Signature was still persisted before confirm (hard rule #4)...
     expect(sendTransaction).toHaveBeenCalledTimes(1);
     expect(store.txSignature).toBe("sig_onchain");
-    // ...but the mismatch fails the delivery instead of confirming it.
-    expect(store.status).toBe("FAILED");
+    // ...the processor does NOT itself confirm the row (no CONFIRMED), and the
+    // alert was logged for the mismatch.
+    expect(store.status).not.toBe("CONFIRMED");
     expect(store.slot).toBeUndefined();
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(String(errorSpy.mock.calls[0][0])).toContain("memo verification FAILED");

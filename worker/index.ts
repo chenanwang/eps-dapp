@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import { prisma } from "@/lib/db";
+import { failServiceRequest } from "@/lib/failure";
 import { processServiceRequest } from "@/worker/process";
 
 /**
@@ -42,6 +43,12 @@ const CLAIMABLE: readonly string[] = ["STAGED", "IN_PROGRESS"];
 export interface ClaimableRequest {
   id: string;
   status: string;
+  /**
+   * Internal `Organization.id` that owns the request (the `ServiceRequest.orgId`
+   * FK). Needed to credit the quota unit back if the delivery fails terminally
+   * (T-306).
+   */
+  orgId: string;
   recipientWallet: string;
   noticeToken: string | null;
   /**
@@ -84,10 +91,18 @@ export interface WorkerDb {
 /** A unit of delivery work: take a claimed row to a terminal state. */
 export type ProcessFn = (row: ClaimableRequest, db: WorkerDb) => Promise<void>;
 
+/**
+ * Terminal-failure handler: park the row FAILED, restore its consumed quota
+ * unit, and audit the transition (T-306). Injected so the loop is testable
+ * without a live DB; defaults to {@link failServiceRequest}.
+ */
+export type FailFn = (row: ClaimableRequest, reason: string) => Promise<void>;
+
 /** Injected collaborators, so the loop is testable without a live DB/cluster. */
 export interface WorkerDeps {
   db: WorkerDb;
   process: ProcessFn;
+  fail: FailFn;
   log: (message: string) => void;
 }
 
@@ -96,6 +111,13 @@ export function defaultDeps(): WorkerDeps {
   return {
     db: prisma as unknown as WorkerDb,
     process: processServiceRequest,
+    fail: (row, reason) =>
+      failServiceRequest({
+        serviceRequestId: row.id,
+        orgId: row.orgId,
+        reason,
+        txSignature: row.txSignature,
+      }).then(() => undefined),
     log: (message) => console.log(`[worker] ${message}`),
   };
 }
@@ -118,6 +140,7 @@ export async function claimNext(deps: WorkerDeps): Promise<ClaimableRequest | nu
     select: {
       id: true,
       status: true,
+      orgId: true,
       recipientWallet: true,
       noticeToken: true,
       documentSha256: true,
@@ -136,10 +159,12 @@ export async function claimNext(deps: WorkerDeps): Promise<ClaimableRequest | nu
 }
 
 /**
- * Claim and process a single job. A delivery error is caught and the row is
- * parked in FAILED (terminal) so the drain loop can't spin on it forever — the
- * full failure path (quota restore + dashboard surface) is T-306. A crash
- * (uncaught, process dies) leaves the row IN_PROGRESS to be resumed next run.
+ * Claim and process a single job. A terminal delivery error (send failure, memo
+ * mismatch, timeout) is caught and routed through {@link FailFn}, which parks the
+ * row FAILED, restores the consumed quota unit, and audits the transition
+ * (T-306) — so the row reaches a terminal state (the drain loop can't spin on it)
+ * and the customer is not billed for a failed delivery. A crash (uncaught,
+ * process dies) leaves the row IN_PROGRESS to be resumed next run.
  *
  * @returns `true` if a job was claimed (regardless of delivery outcome),
  *   `false` if the queue was empty.
@@ -154,10 +179,7 @@ export async function runOnce(deps: WorkerDeps): Promise<boolean> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     deps.log(`delivery failed for ${row.id}: ${message}`);
-    await deps.db.serviceRequest.update({
-      where: { id: row.id },
-      data: { status: "FAILED" },
-    });
+    await deps.fail(row, message);
   }
   return true;
 }
