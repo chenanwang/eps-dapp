@@ -1,7 +1,3 @@
-# Paste this via GitHub web: Add file -> Create new file -> name it exactly:
-#   .github/workflows/claude.yml
-# Prereqs: install the Claude GitHub App on the repo (github.com/apps/claude)
-# and add repo secret ANTHROPIC_API_KEY (Settings -> Secrets -> Actions).
 name: Claude Code
 on:
   issue_comment:
@@ -26,3 +22,6 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_tools: "Bash,Read,Write,Edit,Glob,Grep,MultiEdit,TodoWrite"
+          max_turns: "50"
