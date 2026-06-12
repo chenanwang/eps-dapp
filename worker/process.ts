@@ -1,4 +1,4 @@
-import { getRentExemptMinimum, getSolanaAdapter } from "@/lib/chain";
+import { buildServiceMemo, getRentExemptMinimum, getSolanaAdapter } from "@/lib/chain";
 import type { ClaimableRequest, WorkerDb } from "@/worker/index";
 
 /**
@@ -24,16 +24,27 @@ import type { ClaimableRequest, WorkerDb } from "@/worker/index";
  * The transfer amount is the cluster's rent-exempt minimum, so the recipient is
  * left with a durable, non-purgeable balance.
  *
- * Scope: T-305 adds post-confirm re-read verification (gating CONFIRMED vs
- * FAILED) and the memo's `sha256:` field; for now the memo carries the notice
- * token and service id. No caption or document bytes are logged or sent off-box
- * (hard rule #3).
+ * Post-confirm re-read verification (T-305): the memo we send is the canonical
+ * `${sha256}|${noticeToken}|${serviceId}` ({@link buildServiceMemo}). After
+ * finalization we re-read the transaction's memo from the chain and compare it
+ * to that expected value; on ANY mismatch the row is parked FAILED and an alert
+ * is logged, so a delivery whose on-chain proof does not match what we intended
+ * is never reported as CONFIRMED. No caption or document bytes are logged or
+ * sent off-box (hard rule #3) — the memo carries only a hash and ids.
  */
 export async function processServiceRequest(
   row: ClaimableRequest,
   db: WorkerDb,
 ): Promise<void> {
   const adapter = getSolanaAdapter();
+
+  // The single source of truth for this delivery's memo — used both to send and
+  // to verify on the re-read, so the two can never drift apart.
+  const expectedMemo = buildServiceMemo({
+    sha256: row.documentSha256 ?? "",
+    noticeToken: row.noticeToken ?? "",
+    serviceId: row.id,
+  });
 
   let signature = row.txSignature;
 
@@ -44,7 +55,7 @@ export async function processServiceRequest(
     signature = await adapter.send({
       recipientWallet: row.recipientWallet,
       lamports,
-      memoParts: [`notice:${row.noticeToken ?? ""}`, `svc:${row.id}`],
+      memoParts: [expectedMemo],
     });
 
     await db.serviceRequest.update({
@@ -54,8 +65,26 @@ export async function processServiceRequest(
   }
 
   // Confirm at `finalized` (re-confirms on resume — never re-sends), then stamp
-  // the authoritative slot/blockTime and advance to CONFIRMED.
+  // the authoritative slot/blockTime.
   const { slot, blockTime } = await adapter.confirm(signature);
+
+  // Post-confirm re-read verification (T-305): re-read the on-chain memo and
+  // compare it to what we intended to send. A mismatch means the finalized proof
+  // does not match this request — park it FAILED and alert rather than claiming a
+  // verified delivery. (Full failure handling — quota restore + dashboard
+  // surface — is T-306.)
+  const onChainMemo = await adapter.getMemo(signature);
+  if (onChainMemo !== expectedMemo) {
+    console.error(
+      `[worker] memo verification FAILED for ${row.id} (sig ${signature}): ` +
+        `expected "${expectedMemo}" but on-chain memo is "${onChainMemo ?? "<none>"}"`,
+    );
+    await db.serviceRequest.update({
+      where: { id: row.id },
+      data: { status: "FAILED" },
+    });
+    return;
+  }
 
   await db.serviceRequest.update({
     where: { id: row.id },

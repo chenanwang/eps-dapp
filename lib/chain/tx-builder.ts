@@ -25,6 +25,31 @@ import {
  * can be unit-tested without a live cluster.
  */
 
+/** The tamper-evident proof fields carried in the on-chain service memo. */
+export interface ServiceMemoFields {
+  /** SHA-256 hex digest of the served document. */
+  sha256: string;
+  /** Short notice token / URL slug for the recipient to retrieve the notice. */
+  noticeToken: string;
+  /** Internal service-record id (`svc`). */
+  serviceId: string;
+}
+
+/**
+ * Canonical on-chain memo string for a service delivery:
+ * `${sha256}|${noticeToken}|${serviceId}`. This is the single source of truth
+ * for the memo format — the worker uses it both to build the memo it sends and
+ * to compute the expected value it compares against on the post-confirm re-read
+ * (T-305), so the two can never drift apart.
+ */
+export function buildServiceMemo({
+  sha256,
+  noticeToken,
+  serviceId,
+}: ServiceMemoFields): string {
+  return `${sha256}|${noticeToken}|${serviceId}`;
+}
+
 /** Inputs for {@link buildServiceTx}. */
 export interface BuildServiceTxParams {
   /**
@@ -72,7 +97,7 @@ export async function buildServiceTx({
   // Smallest balance that keeps a zero-data account rent-exempt.
   const lamports = await connection.getMinimumBalanceForRentExemption(0);
 
-  const memo = `${sha256}|${noticeToken}|${serviceId}`;
+  const memo = buildServiceMemo({ sha256, noticeToken, serviceId });
 
   const tx = new Transaction().add(
     SystemProgram.transfer({

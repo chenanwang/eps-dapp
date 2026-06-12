@@ -12,3 +12,5 @@ export {
   getSolanaAdapter,
   getRentExemptMinimum,
 } from "@/lib/chain/solana";
+export { buildServiceMemo, buildServiceTx } from "@/lib/chain/tx-builder";
+export type { ServiceMemoFields } from "@/lib/chain/tx-builder";

@@ -89,6 +89,10 @@ model ServiceRequest {
   courtOrderFlag  Boolean       @default(false)
   attestedAt      DateTime
   noticeToken     String?       @unique
+  /// SHA-256 (hex) of the served document, computed at intake (T-204). The
+  /// worker encodes it into the on-chain memo (`${sha256}|${noticeToken}|${id}`)
+  /// and re-reads it post-confirm to verify the delivery (T-305).
+  documentSha256  String?
   status          ServiceStatus @default(STAGED)
   txSignature     String?
   slot            BigInt?

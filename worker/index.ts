@@ -45,6 +45,12 @@ export interface ClaimableRequest {
   recipientWallet: string;
   noticeToken: string | null;
   /**
+   * SHA-256 (hex) of the served document, stamped at intake (T-204). Encoded
+   * into the on-chain memo and re-read verified post-confirm (T-305). `null` for
+   * rows staged before the column existed.
+   */
+  documentSha256: string | null;
+  /**
    * The on-chain signature, if one has already been sent for this row (hard
    * rule #4). `null` on a fresh STAGED request; non-null on an IN_PROGRESS row
    * a crashed worker left after sending — the resumed worker re-confirms it
@@ -114,6 +120,7 @@ export async function claimNext(deps: WorkerDeps): Promise<ClaimableRequest | nu
       status: true,
       recipientWallet: true,
       noticeToken: true,
+      documentSha256: true,
       txSignature: true,
     },
   });

@@ -89,6 +89,10 @@ export async function createServiceRequest(
         courtOrderFlag: input.courtOrderFlag,
         attestedAt: new Date(),
         noticeToken,
+        // Persist the document hash so the worker can encode it in the on-chain
+        // memo and re-read verify the delivery (T-305). It is a digest, not the
+        // document bytes, so storing/logging the reference is safe (hard rule #3).
+        documentSha256: stored.sha256,
         status: "STAGED",
       },
       select: { id: true, status: true },

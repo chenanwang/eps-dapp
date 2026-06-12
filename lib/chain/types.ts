@@ -69,6 +69,16 @@ export interface ChainAdapter {
   confirm(signature: string): Promise<ConfirmationResult>;
 
   /**
+   * Re-read a finalized transaction by signature and return its decoded Memo
+   * instruction data, or `null` if the transaction carries no memo (or cannot be
+   * found). Used for post-confirm verification (T-305): the worker compares this
+   * authoritative on-chain memo against the value it expected to send, and fails
+   * the delivery on any mismatch.
+   * @returns the UTF-8 memo string, or `null` if absent.
+   */
+  getMemo(signature: string): Promise<string | null>;
+
+  /**
    * Convenience: {@link send} then {@link confirm} a transfer + memo transaction.
    * Prefer the split {@link send}/{@link confirm} in the worker so the signature
    * can be persisted between the two halves (hard rule #4).
