@@ -16,12 +16,21 @@ jobs:
       issues: write
       id-token: write
     steps:
+      - name: Check API key
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY is set, length=${#ANTHROPIC_API_KEY}"
+          else
+            echo "ANTHROPIC_API_KEY is EMPTY"
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          allowed_tools: "Write,Edit,Bash(*)"
+          settings: '{"permissions":{"allow":["Write","Edit","Bash(*)"],"deny":[]}}'
           show_full_output: "true"
           claude_args: "--max-turns 50"
