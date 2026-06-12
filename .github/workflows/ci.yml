@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   secret-scan:
     name: Gitleaks secret scan
@@ -41,8 +45,8 @@ jobs:
           fi
           echo "OK: no mainnet-beta references found."
 
-  build:
-    name: Lint, typecheck, unit tests
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +61,87 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm tsc --noEmit
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Unit tests
-        run: pnpm test
+        # `pnpm test --run` is parsed by pnpm itself; forward the flag with `--`.
+        run: pnpm test -- --run
+
+  integration:
+    name: Integration tests (solana-test-validator)
+    runs-on: ubuntu-latest
+    env:
+      SOLANA_RPC: http://localhost:8899
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Solana CLI (Agave)
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Start solana-test-validator
+        run: |
+          solana-test-validator --quiet --reset --ledger /tmp/test-ledger &
+          echo "VALIDATOR_PID=$!" >> "$GITHUB_ENV"
+          # Wait for the local validator RPC to come up on :8899.
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8899 \
+                -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' | grep -q '"result":"ok"'; then
+              echo "Validator healthy."; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::solana-test-validator did not become healthy in time."; exit 1
+      - name: Integration tests
+        run: pnpm test:integration
+      - name: Stop solana-test-validator
+        if: always()
+        run: kill "$VALIDATOR_PID" 2>/dev/null || true
+
+  e2e:
+    name: E2E (placeholder)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder
+        # Real Playwright e2e suite lands in P5 / T-502.
+        run: echo "e2e placeholder — Playwright suite arrives in P5 (T-502)."
