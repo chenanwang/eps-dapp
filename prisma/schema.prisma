@@ -22,11 +22,12 @@ model Health {
 /// A Clerk organization (the billable tenant). `clerkOrgId` is the verified
 /// org id from the Clerk session token — never accepted from the client.
 model Organization {
-  id            String         @id @default(uuid())
-  clerkOrgId    String         @unique
-  name          String
-  createdAt     DateTime       @default(now())
-  subscriptions Subscription[]
+  id              String           @id @default(uuid())
+  clerkOrgId      String           @unique
+  name            String
+  createdAt       DateTime         @default(now())
+  subscriptions   Subscription[]
+  serviceRequests ServiceRequest[]
 }
 
 enum SubscriptionStatus {
@@ -56,6 +57,45 @@ model WebhookEvent {
   id          String   @id @default(uuid())
   eventId     String   @unique
   processedAt DateTime @default(now())
+}
+
+/// Lifecycle of a service request as it moves from intake through chain delivery.
+///  - STAGED      — created at intake (T-203), quota decremented, awaiting fulfilment.
+///  - IN_PROGRESS — the worker has picked it up and is delivering on-chain (P3).
+///  - CONFIRMED   — transaction finalized and re-read verified (P3).
+///  - FAILED      — delivery failed; quota restored, surfaced on the dashboard (P3).
+enum ServiceStatus {
+  STAGED
+  IN_PROGRESS
+  CONFIRMED
+  FAILED
+}
+
+/// A single service-of-process request. Created at intake (P2/T-203) in the
+/// STAGED state after the org's quota is decremented; the fulfilment worker
+/// (P3) advances it through delivery and stamps the on-chain proof fields
+/// (`txSignature`, `slot`, `blockTime`). `recipientWallet` is a validated,
+/// on-curve Solana address (see `lib/solana/validate-address.ts`). `attestedAt`
+/// records when the filer attested to the accuracy of the caption. The caption
+/// fields are confidential legal-filing metadata — never logged (hard rule #3).
+model ServiceRequest {
+  id              String        @id @default(uuid())
+  orgId           String
+  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  caseCaption     String
+  plaintiffName   String
+  defendantName   String
+  recipientWallet String
+  courtOrderFlag  Boolean       @default(false)
+  attestedAt      DateTime
+  noticeToken     String?       @unique
+  status          ServiceStatus @default(STAGED)
+  txSignature     String?
+  slot            BigInt?
+  blockTime       DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([orgId])
 }
 
 /// Append-only audit trail. Every state transition writes one row in the SAME
