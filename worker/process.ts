@@ -2,6 +2,21 @@ import { buildServiceMemo, getRentExemptMinimum, getSolanaAdapter } from "@/lib/
 import type { ClaimableRequest, WorkerDb } from "@/worker/index";
 
 /**
+ * Thrown when the finalized on-chain memo does not match the memo we intended to
+ * send (T-305). A terminal failure: the worker parks the row FAILED and restores
+ * quota (T-306). The message carries only ids/signature — never document bytes.
+ */
+export class MemoMismatchError extends Error {
+  constructor(serviceRequestId: string, signature: string) {
+    super(
+      `On-chain memo for service request ${serviceRequestId} (sig ${signature}) ` +
+        `does not match the expected delivery memo.`,
+    );
+    this.name = "MemoMismatchError";
+  }
+}
+
+/**
  * Default delivery for one claimed service request (T-303 loop, T-304 contract).
  *
  * Persist-signature-before-confirm (CLAUDE.md hard rule #4): the chain delivery
@@ -27,10 +42,12 @@ import type { ClaimableRequest, WorkerDb } from "@/worker/index";
  * Post-confirm re-read verification (T-305): the memo we send is the canonical
  * `${sha256}|${noticeToken}|${serviceId}` ({@link buildServiceMemo}). After
  * finalization we re-read the transaction's memo from the chain and compare it
- * to that expected value; on ANY mismatch the row is parked FAILED and an alert
- * is logged, so a delivery whose on-chain proof does not match what we intended
- * is never reported as CONFIRMED. No caption or document bytes are logged or
- * sent off-box (hard rule #3) — the memo carries only a hash and ids.
+ * to that expected value; on ANY mismatch an alert is logged and this throws a
+ * {@link MemoMismatchError}, so a delivery whose on-chain proof does not match
+ * what we intended is never reported as CONFIRMED. The throw is a terminal
+ * failure: the worker's failure handler (T-306) parks the row FAILED, restores
+ * the consumed quota unit, and audits it. No caption or document bytes are
+ * logged or sent off-box (hard rule #3) — the memo carries only a hash and ids.
  */
 export async function processServiceRequest(
   row: ClaimableRequest,
@@ -70,20 +87,16 @@ export async function processServiceRequest(
 
   // Post-confirm re-read verification (T-305): re-read the on-chain memo and
   // compare it to what we intended to send. A mismatch means the finalized proof
-  // does not match this request — park it FAILED and alert rather than claiming a
-  // verified delivery. (Full failure handling — quota restore + dashboard
-  // surface — is T-306.)
+  // does not match this request — alert and throw a terminal failure rather than
+  // claiming a verified delivery. The worker's failure handler (T-306) then parks
+  // the row FAILED, restores the consumed quota unit, and audits the transition.
   const onChainMemo = await adapter.getMemo(signature);
   if (onChainMemo !== expectedMemo) {
     console.error(
       `[worker] memo verification FAILED for ${row.id} (sig ${signature}): ` +
         `expected "${expectedMemo}" but on-chain memo is "${onChainMemo ?? "<none>"}"`,
     );
-    await db.serviceRequest.update({
-      where: { id: row.id },
-      data: { status: "FAILED" },
-    });
-    return;
+    throw new MemoMismatchError(row.id, signature);
   }
 
   await db.serviceRequest.update({

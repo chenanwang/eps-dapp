@@ -97,6 +97,10 @@ model ServiceRequest {
   txSignature     String?
   slot            BigInt?
   blockTime       DateTime?
+  /// Human-readable reason a delivery terminally failed (send error, memo
+  /// mismatch, timeout). Surfaced on the dashboard's FAILED rows (T-306). Holds
+  /// only error/diagnostic text — never document or caption bytes (hard rule #3).
+  failureReason   String?
   createdAt       DateTime      @default(now())
 
   @@index([orgId])
