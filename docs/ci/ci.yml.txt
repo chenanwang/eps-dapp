@@ -1,0 +1,63 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mainnet-grep:
+    name: Reject mainnet-beta references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grep for mainnet-beta RPC strings
+        run: |
+          # Hard rule (CLAUDE.md #2): never point any code at mainnet-beta.
+          # Search source, excluding VCS/build/deps and this workflow file itself.
+          if grep -RInE 'mainnet-beta|api\.mainnet' . \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude-dir=.next \
+              --exclude-dir=dist \
+              --exclude-dir=build \
+              --exclude='ci.yml'; then
+            echo "::error::Found a mainnet-beta reference. EPS must never target mainnet."
+            exit 1
+          fi
+          echo "OK: no mainnet-beta references found."
+
+  build:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
