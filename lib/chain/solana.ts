@@ -1,7 +1,8 @@
-import { createMemoInstruction } from "@solana/spl-memo";
+import { MEMO_PROGRAM_ID, createMemoInstruction } from "@solana/spl-memo";
 import {
   Connection,
   Keypair,
+  PublicKey,
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
@@ -27,6 +28,51 @@ function assertNotMainnetUrl(rpcUrl: string): void {
   if (rpcUrl.toLowerCase().includes("mainnet")) {
     throw new Error("Mainnet RPC forbidden");
   }
+}
+
+/**
+ * Decode the Memo instruction data from a `getTransaction` response (T-305).
+ *
+ * Handles both the legacy `Message` shape (`accountKeys` + `instructions` whose
+ * `data` is base58) and the v0 `MessageV0` shape (`staticAccountKeys` +
+ * `compiledInstructions` whose `data` is a byte array). It locates the
+ * instruction whose program is the Memo program and UTF-8 decodes its data.
+ * @returns the memo string, or `null` if the tx is missing or carries no memo.
+ */
+function decodeMemo(
+  tx: { transaction?: { message?: unknown } } | null,
+): string | null {
+  const message = tx?.transaction?.message;
+  if (!message) return null;
+
+  const m = message as {
+    accountKeys?: PublicKey[];
+    staticAccountKeys?: PublicKey[];
+    instructions?: { programIdIndex: number; data: string }[];
+    compiledInstructions?: { programIdIndex: number; data: Uint8Array }[];
+  };
+
+  const accountKeys = m.accountKeys ?? m.staticAccountKeys;
+  if (!accountKeys) return null;
+
+  const isMemo = (programIdIndex: number): boolean =>
+    accountKeys[programIdIndex]?.equals(MEMO_PROGRAM_ID) ?? false;
+
+  if (m.instructions) {
+    for (const ix of m.instructions) {
+      if (isMemo(ix.programIdIndex)) {
+        return Buffer.from(bs58.decode(ix.data)).toString("utf8");
+      }
+    }
+  }
+  if (m.compiledInstructions) {
+    for (const ix of m.compiledInstructions) {
+      if (isMemo(ix.programIdIndex)) {
+        return Buffer.from(ix.data).toString("utf8");
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -104,6 +150,19 @@ export class SolanaAdapter implements ChainAdapter {
       slot: confirmed?.slot ?? 0,
       blockTime: confirmed?.blockTime ?? null,
     };
+  }
+
+  /**
+   * Re-read the finalized transaction and decode its Memo instruction (T-305).
+   * Keyed on the signature alone, so the worker can verify a tx that an earlier
+   * process sent.
+   */
+  async getMemo(signature: string): Promise<string | null> {
+    const tx = await this.connection.getTransaction(signature, {
+      commitment: "finalized",
+      maxSupportedTransactionVersion: 0,
+    });
+    return decodeMemo(tx);
   }
 
   /**

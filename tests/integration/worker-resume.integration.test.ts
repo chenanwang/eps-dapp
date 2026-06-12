@@ -19,9 +19,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *      a second time — driving the row to CONFIRMED with slot/blockTime.
  */
 
-const { send, confirm, getRentExemptMinimum } = vi.hoisted(() => ({
+const SHA = "abc123def456abc123def456abc123def456abc123def456abc123def456abcd";
+const TOKEN = "0123456789abcdef0123456789abcdef";
+
+const { send, confirm, getMemo, getRentExemptMinimum } = vi.hoisted(() => ({
   send: vi.fn(async () => "sig_persisted"),
   confirm: vi.fn(async () => ({ slot: 4242, blockTime: 1_700_000_000 })),
+  // Post-confirm re-read returns the memo we intended to send (T-305) so the
+  // happy/resume paths verify and reach CONFIRMED.
+  getMemo: vi.fn(async () => `${SHA}|${TOKEN}|svc_1`),
   getRentExemptMinimum: vi.fn(async () => 890_880n),
 }));
 
@@ -29,10 +35,20 @@ vi.mock("@/lib/chain", () => ({
   getSolanaAdapter: () => ({
     send,
     confirm,
+    getMemo,
     deliver: vi.fn(),
     assertNotMainnet: () => {},
   }),
   getRentExemptMinimum,
+  buildServiceMemo: ({
+    sha256,
+    noticeToken,
+    serviceId,
+  }: {
+    sha256: string;
+    noticeToken: string;
+    serviceId: string;
+  }) => `${sha256}|${noticeToken}|${serviceId}`,
 }));
 
 import { processServiceRequest } from "@/worker/process";
@@ -49,6 +65,7 @@ interface Row {
   status: string;
   recipientWallet: string;
   noticeToken: string | null;
+  documentSha256: string | null;
   txSignature: string | null;
   slot: bigint | null;
   blockTime: Date | null;
@@ -100,7 +117,8 @@ function row(overrides: Partial<Row> = {}): Row {
     id: "svc_1",
     status: "STAGED",
     recipientWallet: "RecipientWalletAddress1111111111111111111111",
-    noticeToken: "0123456789abcdef0123456789abcdef",
+    noticeToken: TOKEN,
+    documentSha256: SHA,
     txSignature: null,
     slot: null,
     blockTime: null,

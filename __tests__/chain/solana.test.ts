@@ -1,3 +1,4 @@
+import { MEMO_PROGRAM_ID } from "@solana/spl-memo";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,9 @@ const { sendTransaction, confirmTransaction, getTransaction } = vi.hoisted(() =>
     return "sig_111";
   }),
   confirmTransaction: vi.fn(async () => ({ value: { err: null } })),
-  getTransaction: vi.fn(async () => ({ slot: 4242, blockTime: 1_700_000_000 })),
+  getTransaction: vi.fn(
+    async (): Promise<unknown> => ({ slot: 4242, blockTime: 1_700_000_000 }),
+  ),
 }));
 
 vi.mock("@solana/web3.js", async (importActual) => {
@@ -124,6 +127,60 @@ describe("SolanaAdapter.deliver (send + confirm convenience)", () => {
     expect(sendTransaction).toHaveBeenCalledTimes(1);
     expect(confirmTransaction).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ signature: "sig_111", slot: 4242, blockTime: 1_700_000_000 });
+  });
+});
+
+describe("SolanaAdapter.getMemo (post-confirm re-read, T-305)", () => {
+  beforeEach(() => {
+    getTransaction.mockClear();
+  });
+
+  /** A legacy `getTransaction` response whose memo instruction carries `memo`. */
+  function txWithMemo(memo: string) {
+    return {
+      slot: 1,
+      blockTime: 1,
+      transaction: {
+        message: {
+          // index 0 is the Memo program; the single instruction is the memo.
+          accountKeys: [MEMO_PROGRAM_ID],
+          instructions: [
+            { programIdIndex: 0, accounts: [], data: bs58.encode(Buffer.from(memo)) },
+          ],
+        },
+      },
+    };
+  }
+
+  it("re-reads and decodes the on-chain memo by signature", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+    getTransaction.mockResolvedValueOnce(txWithMemo("hash|notice|svc_1"));
+
+    const memo = await adapter.getMemo("sig_persisted");
+
+    expect(getTransaction).toHaveBeenCalledTimes(1);
+    expect(memo).toBe("hash|notice|svc_1");
+  });
+
+  it("returns a tampered memo verbatim (so the worker can detect the mismatch)", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+    getTransaction.mockResolvedValueOnce(txWithMemo("WRONG|notice|svc_1"));
+
+    expect(await adapter.getMemo("sig_persisted")).toBe("WRONG|notice|svc_1");
+  });
+
+  it("returns null when the transaction is missing or carries no memo", async () => {
+    const adapter = new SolanaAdapter(DEVNET, Keypair.generate());
+
+    getTransaction.mockResolvedValueOnce(null);
+    expect(await adapter.getMemo("sig_gone")).toBeNull();
+
+    getTransaction.mockResolvedValueOnce({
+      slot: 1,
+      blockTime: 1,
+      transaction: { message: { accountKeys: [], instructions: [] } },
+    });
+    expect(await adapter.getMemo("sig_nomemo")).toBeNull();
   });
 });
 
