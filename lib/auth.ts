@@ -7,10 +7,20 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  constructor(message = "Forbidden: requires organization admin role") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 export interface AuthContext {
   userId: string;
   orgId: string;
 }
+
+/** Clerk role slug for an organization administrator. */
+export const ORG_ADMIN_ROLE = "org:admin";
 
 /**
  * Resolve the current request's auth context from the Clerk session token,
@@ -29,6 +39,30 @@ export async function requireAuth(): Promise<AuthContext> {
   }
   if (!orgId) {
     throw new UnauthorizedError("Unauthorized: no active organization");
+  }
+
+  return { userId, orgId };
+}
+
+/**
+ * Like {@link requireAuth}, but additionally requires the caller to hold the
+ * `org:admin` role in their active organization. The role is read from the
+ * verified Clerk session token via `has()` — never from client input.
+ *
+ * @throws {UnauthorizedError} when there is no authenticated user / active org.
+ * @throws {ForbiddenError} when the user is authenticated but not an org admin.
+ */
+export async function requireOrgAdmin(): Promise<AuthContext> {
+  const { userId, orgId, has } = await auth();
+
+  if (!userId) {
+    throw new UnauthorizedError();
+  }
+  if (!orgId) {
+    throw new UnauthorizedError("Unauthorized: no active organization");
+  }
+  if (!has({ role: ORG_ADMIN_ROLE })) {
+    throw new ForbiddenError();
   }
 
   return { userId, orgId };
