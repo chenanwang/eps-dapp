@@ -18,3 +18,42 @@ model Health {
   status    String   @default("ok")
   createdAt DateTime @default(now())
 }
+
+/// A Clerk organization (the billable tenant). `clerkOrgId` is the verified
+/// org id from the Clerk session token — never accepted from the client.
+model Organization {
+  id            String         @id @default(uuid())
+  clerkOrgId    String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+}
+
+/// A subscription period for an organization. `usageCount` is the quota meter
+/// for the current period; it resets on rollover (see P1/T-105).
+model Subscription {
+  id           String             @id @default(uuid())
+  orgId        String
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tierId       String
+  status       SubscriptionStatus
+  periodStart  DateTime
+  periodEnd    DateTime
+  usageCount   Int                @default(0)
+
+  @@index([orgId])
+}
+
+/// Stripe webhook idempotency ledger. A row exists once an event id has been
+/// processed, so replayed events become no-ops (see P1/T-104).
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  processedAt DateTime @default(now())
+}
