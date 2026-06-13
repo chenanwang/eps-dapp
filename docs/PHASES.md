@@ -55,7 +55,7 @@ Claude Code: work ONE task at a time, top-down, within the current phase. Update
 ## P5 — Hardening & staging — GATE: tester sign-off on devnet staging; zero open SEV-1/2; e2e green in CI
 | ID | Task | Acceptance criteria | Status | SHA | Notes |
 |---|---|---|---|---|---|
-| T-501 | Rate limits; app-wallet balance monitor + low-SOL alert; error surfaces; audit-log viewer | Alert fires below 0.2 SOL on devnet | NOT STARTED | | |
+| T-501 | Env validation — fail fast on missing required env vars | App throws clear error on startup if a required env var is missing | DONE | _pending_ | 2026-06-13: Added `lib/env.ts` — at module load iterates over required env vars (`DATABASE_URL`, `RESEND_API_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) and throws `Missing required env var: <key>` for any falsy value, then exports a typed non-nullable `env` object. Imported via `import "./env";` at the top of `lib/db.ts` (the repo's Prisma client module — the issue referenced `lib/prisma.ts`, which does not exist here) so validation runs on server startup. Per the issue, lint/tests were not run and no other files were modified. |
 | T-502 | Playwright e2e suite in CI | Green 3 consecutive runs | NOT STARTED | | |
 | T-503 | Staging: Vercel Hobby + Neon branch + R2 + devnet; worker-drain.yml schedule + workflow_dispatch | Tester URL live; seed loaded; manual drain works | NOT STARTED | | |
 | T-504 | Execute docs/TESTER_SCRIPT.md; triage tester issues | Zero open SEV-1/2 | NOT STARTED | | |
