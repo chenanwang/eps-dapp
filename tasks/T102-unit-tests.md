@@ -1,8 +1,27 @@
 # T102 - Unit Tests (Vitest) - All Green
 
-Status: PENDING
+Status: DONE
 Depends on: T101
 Estimated turns: 40
+
+## Result (2026-06-13)
+- 138 unit tests green (97 existing + 41 new), `vitest run` exits 0.
+- New test files: __tests__/ens/ENSResolver.test.ts, __tests__/hedera/HederaService.test.ts,
+  __tests__/payments/DynamicFlow.test.ts, __tests__/payments/UnlinkPrivacy.test.ts,
+  __tests__/chain/EVMAdapter.test.ts.
+- Coverage (new modules): stmts 94.8% / lines 95.4% / funcs 100% — all ≥80%.
+  Per-file lines: ENSResolver 92.3%, HederaService 100%, DynamicFlow 100%,
+  UnlinkPrivacy 81.8%, EVMAdapter 94.2%.
+- Install fix: removed unused phantom dep `@dynamic-labs/sdk-api@^3.0.0` (imported
+  nowhere; no such version on npm — it blocked `pnpm install`).
+- Added dev tooling: `@vitest/coverage-v8@4.1.8` (version-matched to vitest).
+- Tested the REAL exported APIs (resolveENS, submitToHCS/mintProofNFT, validateAddress,
+  createFlowSession/parseFlowWebhook, depositToPrivateAccount) which differ from the
+  brief's placeholder names; modules degrade gracefully (return null) rather than throw.
+- Out of scope / pre-existing: `pnpm typecheck` still reports T101 debt in
+  lib/hedera/HederaService.ts, lib/agents/DynamicServerWallet.ts, lib/payments/UnlinkPrivacy.ts,
+  scripts/*, and existing certificate-pdf/post-confirm-verify tests. New test files are
+  type-clean and lint-clean.
 
 ## Goal
 pnpm test exits 0. Every Vitest unit test passes. Coverage for new modules >= 80%.
