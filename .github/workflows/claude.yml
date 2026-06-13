@@ -1,5 +1,10 @@
 name: Claude Code
 on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to process'
+        required: false
   issue_comment:
     types: [created]
   issues:
@@ -7,7 +12,8 @@ on:
 
 jobs:
   claude:
-    if: |
+    if: >
+      (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
     runs-on: ubuntu-latest
