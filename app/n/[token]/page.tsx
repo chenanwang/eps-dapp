@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { loadNotice, type NoticeView } from "@/lib/notice";
 import { clientIpFromHeaders, rateLimit } from "@/lib/rateLimit";
+import { recordFirstAccess } from "@/lib/noticeAccess";
+import { sendFirstAccessEmail } from "@/lib/email";
 
 // Public page: no Clerk auth (the middleware matcher only protects /dashboard).
 // Rendered per-request so the rate limiter and lookup run on every hit.
@@ -147,8 +149,10 @@ export default async function NoticePage({
 }) {
   const { token } = await params;
 
+  const requestHeaders = await headers();
+
   // Rate-limit per client IP BEFORE the DB lookup so a flood can't probe tokens.
-  const ip = clientIpFromHeaders(await headers());
+  const ip = clientIpFromHeaders(requestHeaders);
   const { ok } = rateLimit(`notice:${ip}`, {
     limit: RATE_LIMIT,
     windowMs: RATE_WINDOW_MS,
@@ -159,5 +163,32 @@ export default async function NoticePage({
   // Unknown / malformed token → 404 (unguessable: 128-bit token, no enumeration).
   if (!request) notFound();
 
+  // Record the access (first-view-guarded) and fire the owner alert on the
+  // first view only. Best-effort: a logging/email failure must never stop the
+  // recipient seeing the notice, so swallow errors here.
+  try {
+    const userAgent = requestHeaders.get("user-agent") ?? "";
+    const access = await recordFirstAccess(request.id, ip, userAgent);
+    if (access.isFirstAccess && access.ownerEmail) {
+      await sendFirstAccessEmail({
+        to: access.ownerEmail,
+        caseRef: access.caseRef,
+        maskedIp: access.maskedIp,
+        viewedAt: access.viewedAt,
+        noticeUrl: noticeUrlFrom(requestHeaders, token),
+      });
+    }
+  } catch {
+    // Intentionally ignored — see comment above.
+  }
+
   return <CoverSheet request={request} />;
+}
+
+/** Reconstruct the public notice URL from forwarding headers for the alert email. */
+function noticeUrlFrom(requestHeaders: Headers, token: string): string {
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "";
+  return `${proto}://${host}/n/${token}`;
 }

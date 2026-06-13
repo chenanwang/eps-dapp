@@ -25,6 +25,10 @@ model Organization {
   id              String           @id @default(uuid())
   clerkOrgId      String           @unique
   name            String
+  /// Service-owner contact address. Used as the "To" for the first-access alert
+  /// email when a recipient first opens a notice (T-402). Nullable: not every
+  /// org has supplied one yet; the alert is skipped when absent.
+  ownerEmail      String?
   createdAt       DateTime         @default(now())
   subscriptions   Subscription[]
   serviceRequests ServiceRequest[]
@@ -103,7 +107,43 @@ model ServiceRequest {
   failureReason   String?
   createdAt       DateTime      @default(now())
 
+  /// First-access records (T-402). At most one row exists per notice (the
+  /// `noticeId` unique constraint makes recording the first view idempotent).
+  access          NoticeAccess?
+  /// Certificate "First Viewed" addendum (T-402), written alongside the first
+  /// access so the certificate (T-403) can regenerate with the view recorded.
+  addendum        CertificateAddendum?
+
   @@index([orgId])
+}
+
+/// One row per notice, recorded the first time a recipient opens `/n/<token>`
+/// (T-402). The `noticeId` unique constraint enforces first-access-only
+/// semantics: `recordFirstAccess` inserts once and is a no-op thereafter.
+/// `ip`/`userAgent` are request metadata for the proof-of-access trail; the
+/// certificate addendum stores only a MASKED ip (last octet dropped).
+model NoticeAccess {
+  id         String         @id @default(uuid())
+  noticeId   String         @unique
+  notice     ServiceRequest @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  ip         String
+  userAgent  String
+  accessedAt DateTime       @default(now())
+}
+
+/// "First Viewed" addendum appended to a notice's certificate (T-402). Written
+/// in the SAME transaction as the first {@link NoticeAccess} row. `viewerIp` is
+/// MASKED (last octet → `x`) — the certificate is a court-facing artefact and
+/// need not expose a full address.
+model CertificateAddendum {
+  id        String         @id @default(uuid())
+  noticeId  String         @unique
+  notice    ServiceRequest @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  /// When the recipient first viewed the notice (UTC).
+  viewedAt  DateTime
+  /// Masked recipient IP (last octet dropped).
+  viewerIp  String
+  createdAt DateTime       @default(now())
 }
 
 /// Append-only audit trail. Every state transition writes one row in the SAME
