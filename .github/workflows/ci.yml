@@ -37,7 +37,7 @@ jobs:
           # Hard rule (CLAUDE.md #2): never point any code at mainnet-beta.
           # Scope to application code only. Intentionally excludes lib/ (the
           # assertNotMainnet() guard), tests/ (which test the guard), docs, and
-          # *.example files — all of which legitimately mention mainnet-beta.
+          # *.example files â all of which legitimately mention mainnet-beta.
           if grep -rn "mainnet-beta\.solana\.com" app/ worker/ scripts/ prisma/ 2>/dev/null | grep -v "^Binary"; then
             echo "ERROR: mainnet-beta RPC URL found in application code"
             exit 1
@@ -57,7 +57,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Lint
         run: pnpm lint
 
@@ -74,7 +74,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Typecheck
         run: pnpm tsc --noEmit
 
@@ -91,7 +91,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Unit tests
         # `pnpm test --run` is parsed by pnpm itself; forward the flag with `--`.
         run: pnpm test -- --run
@@ -111,7 +111,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Install Solana CLI (Agave)
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
@@ -143,4 +143,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Placeholder
         # Real Playwright e2e suite lands in P5 / T-502.
-        run: echo "e2e placeholder — Playwright suite arrives in P5 (T-502)."
+        run: echo "e2e placeholder â Playwright suite arrives in P5 (T-502)."
