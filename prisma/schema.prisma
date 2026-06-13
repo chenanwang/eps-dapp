@@ -113,6 +113,8 @@ model ServiceRequest {
   /// Certificate "First Viewed" addendum (T-402), written alongside the first
   /// access so the certificate (T-403) can regenerate with the view recorded.
   addendum        CertificateAddendum?
+  /// The generated certificate PDF (T-403), stored once and served on demand.
+  certificatePdf  CertificatePdf?
 
   @@index([orgId])
 }
@@ -144,6 +146,21 @@ model CertificateAddendum {
   /// Masked recipient IP (last octet dropped).
   viewerIp  String
   createdAt DateTime       @default(now())
+}
+
+/// Generated certificate PDF for a served notice (T-403). One row per notice
+/// (the `noticeId` unique constraint), generated on first download and reused
+/// thereafter. The PDF bytes are stored base64-encoded in `pdfBase64`. The
+/// certificate carries only court-facing proof fields (caption, file hash,
+/// on-chain proof, first-view record) — never document or caption bytes beyond
+/// what the cover sheet already exposes (hard rule #3).
+model CertificatePdf {
+  id          String         @id @default(uuid())
+  noticeId    String         @unique
+  notice      ServiceRequest @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  /// Base64-encoded PDF bytes.
+  pdfBase64   String
+  generatedAt DateTime       @default(now())
 }
 
 /// Append-only audit trail. Every state transition writes one row in the SAME
