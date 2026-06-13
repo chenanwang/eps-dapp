@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { writeFirstViewedAddendum } from "@/lib/certificate";
+import { sendFirstAccessAlert } from "./email/send-first-access-alert";
 
 /**
  * First-access recording for public notices (T-402).
@@ -105,6 +106,9 @@ export async function recordFirstAccess(
         metadata: { viewerIp: maskedIp },
       },
     });
+
+    // Fire-and-forget first-access alert email (T-404).
+    void sendFirstAccessAlert(noticeId);
 
     return {
       isFirstAccess: true,
