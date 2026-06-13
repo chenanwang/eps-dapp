@@ -1,6 +1,6 @@
 // scripts/create-agent-wallet.ts — run once: npx tsx scripts/create-agent-wallet.ts
-import { config } from 'dotenv';
-config({ path: '.env.local' });
+import { loadEnvFile } from 'node:process';
+try { loadEnvFile('.env.local'); } catch { /* .env.local optional */ }
 import { createAgentWallet } from '../lib/agents/DynamicServerWallet';
 
 async function main() {

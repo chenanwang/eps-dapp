@@ -16,6 +16,20 @@ const eslintConfig = [
     // triple-slash path reference that the next/typescript rules would reject.
     ignores: [".next/**", "node_modules/**", "next-env.d.ts"],
   },
+  {
+    // Honour the leading-underscore convention for deliberately unused bindings
+    // (placeholder params, stubbed adapters, ignored rest args).
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

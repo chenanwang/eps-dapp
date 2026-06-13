@@ -1,6 +1,6 @@
 # T101 - Build Verification and TypeScript Clean Compile
 
-Status: PENDING
+Status: DONE
 Blocker for: All subsequent tasks
 Estimated turns: 30
 

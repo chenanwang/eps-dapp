@@ -90,6 +90,8 @@ function makeRow(): { row: ClaimableRequest; store: Record<string, unknown> } {
     noticeToken: TOKEN,
     documentSha256: SHA,
     txSignature: null,
+    caseCaption: "Test Matter v. Test, No. 26-CV-001",
+    agentENSName: null,
   };
   return { row, store: { ...row } };
 }

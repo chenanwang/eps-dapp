@@ -63,6 +63,13 @@ const SAMPLE = {
   noticeToken: "0123456789abcdef0123456789abcdef",
   firstViewedAt: new Date("2026-06-13T02:30:00.000Z"),
   firstViewerIp: "203.0.113.x",
+  hcsTopicId: null,
+  hcsSequenceNumber: null,
+  hcsConsensusTime: null,
+  hcsMirrorUrl: null,
+  htsTokenId: null,
+  htsSerialNumber: null,
+  htsMirrorUrl: null,
 };
 
 describe("renderCertificatePdf", () => {

@@ -26,7 +26,7 @@ export async function createAgentWallet(): Promise<AgentWalletInfo | null> {
       return null;
     }
 
-    const { authenticatedEvmClient, ThresholdSignatureScheme } = mod as {
+    const { authenticatedEvmClient, ThresholdSignatureScheme } = mod as unknown as {
       authenticatedEvmClient: (opts: { authToken: string; environmentId: string }) => Promise<{
         createWalletAccount: (opts: unknown) => Promise<{ walletMetadata?: { id?: string }; publicKeyHex?: string; externalServerKeyShares?: unknown }>;
       }>;
