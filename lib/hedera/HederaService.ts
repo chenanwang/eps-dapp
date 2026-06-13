@@ -55,7 +55,7 @@ export async function submitToHCS(payload: {
     const network = process.env.HEDERA_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
     let consensusTimestamp: string | null = null;
     try {
-      const ts = (receipt as Record<string, unknown>).consensusTimestamp;
+      const ts = (receipt as unknown as Record<string, unknown>).consensusTimestamp;
       if (ts != null) {
         const toDate = (ts as Record<string, unknown>).toDate;
         if (typeof toDate === 'function') consensusTimestamp = (toDate as () => Date).call(ts).toISOString();

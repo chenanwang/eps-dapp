@@ -1,7 +1,16 @@
 # T102 - Unit Tests (Vitest) - All Green
 
-Status: PENDING
+Status: DONE
 Depends on: T101
+
+## Resolution notes
+- Existing suite already green (97 tests). Added 26 new tests across 5 files (123 total, all passing, no .skip):
+  - __tests__/ens/ENSResolver.test.ts (ensjs client mocked)
+  - __tests__/hedera/HederaService.test.ts (@hashgraph/sdk mocked)
+  - __tests__/payments/DynamicFlow.test.ts (fetch mocked)
+  - __tests__/payments/UnlinkPrivacy.test.ts (graceful-null contract; real deposit() still stubbed since @unlink-xyz/sdk is unpublished)
+  - __tests__/chain/EVMAdapter.test.ts (validateAddress + constructor guard)
+- Tests assert the modules' ACTUAL exported API (resolveENS, submitToHCS/mintProofNFT/recordOnHedera, createFlowSession/parseFlowWebhook, depositToPrivateAccount, EVMAdapter.validateAddress) rather than the illustrative names in the task spec.
 Estimated turns: 40
 
 ## Goal

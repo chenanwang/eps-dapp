@@ -1,6 +1,6 @@
 // scripts/test-hedera.ts — run with: npx tsx scripts/test-hedera.ts
-import { config } from 'dotenv';
-config({ path: '.env.local' });
+// Load .env.local via Node's built-in env-file loader (no dotenv dependency).
+try { process.loadEnvFile('.env.local'); } catch { /* .env.local is optional */ }
 
 import { recordOnHedera } from '../lib/hedera/HederaService';
 import { verifyAgentKitAvailable } from '../lib/hedera/HederaAgentKit';

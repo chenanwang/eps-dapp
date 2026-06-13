@@ -133,6 +133,11 @@ model ServiceRequest {
   certificatePdf  CertificatePdf?
 
   @@index([orgId])
+  // The worker claims rows by status (STAGED/IN_PROGRESS), and the dashboard
+  // lists an org's requests newest-first — index both for those hot paths (T107).
+  @@index([status])
+  @@index([createdAt])
+  @@index([orgId, status, createdAt])
 }
 
 /// One row per notice, recorded the first time a recipient opens `/n/<token>`

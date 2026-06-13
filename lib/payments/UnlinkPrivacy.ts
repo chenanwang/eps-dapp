@@ -28,8 +28,11 @@ export async function depositToPrivateAccount(params: {
   fromAddress: string;
 }): Promise<PrivateDepositResult | null> {
   try {
-    // Attempt dynamic import — will work once @unlink-xyz/sdk is published
-    const mod = await import('@unlink-xyz/sdk').catch(() => null);
+    // Attempt dynamic import — will work once @unlink-xyz/sdk is published.
+    // The specifier is held in a variable so the type-checker/bundler does not
+    // attempt to statically resolve a package that is not yet in the registry.
+    const unlinkPkg = '@unlink-xyz/sdk';
+    const mod = await import(/* webpackIgnore: true */ unlinkPkg).catch(() => null);
     if (!mod) {
       console.warn('[Unlink] @unlink-xyz/sdk not yet available in npm registry');
       console.warn('[Unlink] When published: will call deposit() to shield payment amounts on-chain');

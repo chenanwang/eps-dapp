@@ -8,6 +8,35 @@ Multi-chain: Solana (live) · Ethereum/Base/Arbitrum/Hedera EVM · Bitcoin (road
 **Track:** Continuity Track (existing product, new features built this weekend)
 **Event:** https://ethglobal.com/events/newyork2026
 
+### Live Demo
+
+| Resource | Link |
+|----------|------|
+| Live app | `https://<your-vercel-deploy>.vercel.app` _(set after deploy)_ |
+| Health check | `https://<your-vercel-deploy>.vercel.app/api/health` → `{"status":"ok","db":"connected","version":"1.0.0"}` |
+| ENS resolve API | `https://<your-vercel-deploy>.vercel.app/api/ens/resolve?input=vitalik.eth` |
+| Hedera proofs (mirror node) | https://testnet.mirrornode.hedera.com |
+| Solana deliveries (devnet) | https://explorer.solana.com/?cluster=devnet |
+| Demo screenshots | [`docs/screenshots/`](docs/screenshots/README.md) |
+| Deployment guide | [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md) |
+
+> Replace `<your-vercel-deploy>` with the deployed host. The worker
+> (`pnpm worker`) runs separately from the Vercel app — see the deployment
+> checklist.
+
+### Bounty integration package versions (proof)
+
+Pinned versions backing each bounty claim (from `pnpm list`):
+
+| Package | Version | Bounty |
+|---------|---------|--------|
+| `@ensdomains/ensjs` | 4.2.3 | ENS |
+| `@hashgraph/sdk` | 2.81.0 | Hedera (zero Solidity) |
+| `@dynamic-labs/sdk-api` | 0.0.1045 | Dynamic |
+| `viem` | 2.52.2 | Multi-chain EVM / ENS |
+
+Zero Solidity files in the repo (`find . -name "*.sol" -not -path "*/node_modules/*"` → none) — Hedera "No Solidity Allowed" track requirement satisfied.
+
 ### Bounty integrations
 
 | Sponsor | Tracks | Prize | What we built |
