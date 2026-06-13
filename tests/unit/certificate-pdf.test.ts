@@ -63,6 +63,14 @@ const SAMPLE = {
   noticeToken: "0123456789abcdef0123456789abcdef",
   firstViewedAt: new Date("2026-06-13T02:30:00.000Z"),
   firstViewerIp: "203.0.113.x",
+  // Hedera fields (Phase 3)
+  hcsTopicId: "0.0.123456",
+  hcsSequenceNumber: 7,
+  hcsConsensusTime: "2026-06-13T01:00:05.000Z",
+  hcsMirrorUrl: "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.123456/messages/7",
+  htsTokenId: "0.0.654321",
+  htsSerialNumber: 1,
+  htsMirrorUrl: "https://testnet.mirrornode.hedera.com/api/v1/tokens/0.0.654321/nfts/1",
 };
 
 describe("renderCertificatePdf", () => {

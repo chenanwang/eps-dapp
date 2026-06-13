@@ -90,6 +90,8 @@ function makeRow(): { row: ClaimableRequest; store: Record<string, unknown> } {
     noticeToken: TOKEN,
     documentSha256: SHA,
     txSignature: null,
+    caseCaption: "Acme Corp v. Doe, No. 24-CV-001",
+    agentENSName: null,
   };
   return { row, store: { ...row } };
 }
