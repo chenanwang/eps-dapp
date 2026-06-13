@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { fileTypeFromBuffer } from "file-type";
 import { storeDocument } from "@/lib/storage";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-config";
 
 // file-type inspects raw bytes, so this route must run on the Node runtime.
 export const runtime = "nodejs";
 
-/** 25 MB hard cap on a single uploaded document. */
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-
 /**
- * Declared MIME whitelist → the magic-byte signatures file-type reports for that
+ * Declared MIME whitelist â the magic-byte signatures file-type reports for that
  * format. The declared `Content-Type` of the multipart part is only trusted if
  * the bytes themselves sniff to one of the allowed signatures, so a renamed /
  * spoofed-extension file (e.g. an `.exe` sent as `application/pdf`) is rejected.
@@ -29,11 +27,11 @@ const ALLOWED_MIME: Record<string, readonly string[]> = {
 };
 
 /**
- * POST /api/upload — validate an uploaded legal document before it is staged.
+ * POST /api/upload â validate an uploaded legal document before it is staged.
  *
  * Enforces, pre-quota:
  *  1. multipart/form-data with a `file` part,
- *  2. size ≤ 25 MB,
+ *  2. size â¤ 25 MB,
  *  3. declared MIME on the document whitelist,
  *  4. magic bytes that actually match the declared MIME (anti-spoofing).
  *

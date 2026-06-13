@@ -12,9 +12,10 @@ vi.mock("../lib/storage", () => ({
   storeDocument: vi.fn(async () => STORED),
 }));
 
-import { POST, MAX_UPLOAD_BYTES } from "../app/api/upload/route";
+import { POST } from "../app/api/upload/route";
+import { MAX_UPLOAD_BYTES } from "../lib/upload-config";
 
-// A minimal but structurally valid PDF — file-type sniffs the leading `%PDF-`
+// A minimal but structurally valid PDF â file-type sniffs the leading `%PDF-`
 // signature and reports `application/pdf`.
 const PDF_BYTES = new TextEncoder().encode(
   "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
@@ -46,7 +47,7 @@ describe("POST /api/upload", () => {
   });
 
   it("rejects a file larger than the 25 MB cap", async () => {
-    // 26 MB of PDF: real magic bytes, but over the limit — must be rejected
+    // 26 MB of PDF: real magic bytes, but over the limit â must be rejected
     // on size before the contents are ever sniffed.
     const oversize = new Uint8Array(26 * 1024 * 1024);
     oversize.set(PDF_BYTES, 0);
@@ -58,7 +59,7 @@ describe("POST /api/upload", () => {
   });
 
   it("rejects a spoofed extension (declared PDF, non-PDF magic bytes)", async () => {
-    // PNG signature bytes mislabelled as a PDF — magic-byte check must catch it.
+    // PNG signature bytes mislabelled as a PDF â magic-byte check must catch it.
     const pngBytes = new Uint8Array([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
     ]);
