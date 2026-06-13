@@ -14,6 +14,26 @@ vi.mock("@/lib/db", () => ({
 const headersMock = vi.fn<() => Headers>();
 vi.mock("next/headers", () => ({ headers: () => headersMock() }));
 
+// First-access recording + alert email are exercised in notice-access.test.ts;
+// here they are stubbed so the page test stays focused on rendering. Default to
+// "not first access" so no email path runs.
+const recordFirstAccessMock = vi.fn(async (..._args: unknown[]) => ({
+  isFirstAccess: false,
+  ownerEmail: null as string | null,
+  caseRef: "",
+  maskedIp: "203.0.113.x",
+  viewedAt: new Date("2026-06-13T12:34:56.000Z"),
+}));
+vi.mock("@/lib/noticeAccess", () => ({
+  recordFirstAccess: (...args: unknown[]) => recordFirstAccessMock(...args),
+}));
+const sendFirstAccessEmailMock = vi.fn(async (..._args: unknown[]) => ({
+  sent: false,
+}));
+vi.mock("@/lib/email", () => ({
+  sendFirstAccessEmail: (...args: unknown[]) => sendFirstAccessEmailMock(...args),
+}));
+
 // `notFound()` throws in Next; emulate with a sentinel we can assert on.
 class NotFoundError extends Error {}
 vi.mock("next/navigation", () => ({
@@ -56,6 +76,8 @@ describe("/n/[token] notice page", () => {
   beforeEach(() => {
     findUniqueMock.mockReset();
     headersMock.mockReset();
+    recordFirstAccessMock.mockClear();
+    sendFirstAccessEmailMock.mockClear();
     __resetRateLimit();
   });
 
