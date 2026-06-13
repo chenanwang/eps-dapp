@@ -12,6 +12,11 @@ import {
   NoActiveSubscriptionError,
 } from "@/lib/quota";
 import { resolveENS, getAgentENSName } from "@/lib/ens/ENSResolver";
+import { rateLimit, clientKey, rateLimitHeaders } from "@/lib/rate-limit";
+
+// Intake is quota-metered downstream, but rate-limit the endpoint itself
+// (10/min/IP, T107) so a runaway client can't hammer auth + quota checks.
+const INTAKE_LIMIT = { limit: 10, windowMs: 60_000 };
 
 /**
  * Server-side validation schema for a service-request intake. Mirrors the
@@ -50,6 +55,14 @@ const ServiceRequestInput = z.object({
  * Returns: `{ id, status }` for the staged request.
  */
 export async function POST(req: Request): Promise<Response> {
+  const rl = rateLimit(`service-requests:${clientKey(req)}`, INTAKE_LIMIT);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Try again shortly." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
   let authContext;
   try {
     authContext = await requireAuth();
