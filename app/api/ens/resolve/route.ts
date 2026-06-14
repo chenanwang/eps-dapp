@@ -15,12 +15,22 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const input = req.nextUrl.searchParams.get('input')?.trim();
+  // Accept either `input` (in-app form) or `name` (judges/curl hit this directly).
+  const input =
+    req.nextUrl.searchParams.get('input')?.trim() ||
+    req.nextUrl.searchParams.get('name')?.trim();
   if (!input || input.length < 3) {
     return NextResponse.json({ error: 'input required, min 3 chars' }, { status: 400 });
   }
   try {
     const result = await resolveENS(input);
+    // A name that doesn't resolve must be an explicit JSON 404 — never an empty body.
+    if (result.address === null) {
+      return NextResponse.json(
+        { ...result, error: 'Name not found' },
+        { status: 404 },
+      );
+    }
     return NextResponse.json(result);
   } catch (err) {
     console.error('[ENS resolve]', err);
