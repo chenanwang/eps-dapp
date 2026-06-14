@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import DemoBanner from "@/components/DemoBanner";
 
 /**
  * Dashboard chrome: a persistent top nav so authenticated pages are no longer
@@ -13,6 +14,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen">
+      <DemoBanner />
       <header className="border-b border-gray-200">
         <nav className="mx-auto flex w-full max-w-5xl items-center justify-between px-8 py-4">
           <Link href="/dashboard" className="text-lg font-bold tracking-tight">
