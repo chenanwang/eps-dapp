@@ -4,28 +4,27 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 
 /**
- * Authenticated services dashboard (T-405). Lists the org's service requests
- * newest-first with their derived status and links to the public notice page
- * and the generated certificate PDF.
+ * Authenticated services dashboard (T-405). Lists the caller's own service
+ * requests newest-first with their derived status and links to the public
+ * notice page and the generated certificate PDF.
  *
  * NOTE: the issue spec was written against a hypothetical `Service`/`Notice`
  * data model (with a `clerkUserId` column and `lib/prisma.ts`). This repo's
  * schema instead has a single `ServiceRequest` that IS the notice (1:1 with its
- * `NoticeAccess` and `CertificatePdf`), scoped to an `Organization`. The query,
- * relations and column mapping below are adapted to that real schema so the
- * page compiles and typechecks while preserving the spec's intent.
+ * `NoticeAccess` and `CertificatePdf`). Requests are owned by the filer's Clerk
+ * `userId` (issue #112), so a user with no organization still sees their work.
  */
 export default async function DashboardPage() {
-  // userId/orgId come from the verified Clerk session token, never the client.
-  const { userId, orgId } = await auth();
+  // userId comes from the verified Clerk session token, never the client.
+  const { userId } = await auth();
   if (!userId) {
     redirect("/sign-in");
   }
 
-  // Services are scoped to the caller's active organization — the schema relates
-  // each ServiceRequest to an Organization, not directly to a Clerk user id.
+  // Services are scoped to the caller's own Clerk user id — a request belongs to
+  // the filer who staged it, regardless of whether they have an organization.
   const services = await prisma.serviceRequest.findMany({
-    where: { organization: { clerkOrgId: orgId ?? "" } },
+    where: { userId },
     include: {
       access: true,
       certificatePdf: true,

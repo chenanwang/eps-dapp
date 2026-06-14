@@ -7,7 +7,7 @@ vi.mock("@clerk/nextjs/server", () => ({
   auth: () => authMock(),
 }));
 
-import { requireAuth, UnauthorizedError } from "../lib/auth";
+import { requireAuth, requireUser, UnauthorizedError } from "../lib/auth";
 
 describe("requireAuth", () => {
   beforeEach(() => {
@@ -27,6 +27,33 @@ describe("requireAuth", () => {
   it("returns userId/orgId derived from the session token", async () => {
     authMock.mockResolvedValue({ userId: "user_123", orgId: "org_456" });
     await expect(requireAuth()).resolves.toEqual({
+      userId: "user_123",
+      orgId: "org_456",
+    });
+  });
+});
+
+describe("requireUser", () => {
+  beforeEach(() => {
+    authMock.mockReset();
+  });
+
+  it("throws UnauthorizedError when there is no userId (unauthenticated)", async () => {
+    authMock.mockResolvedValue({ userId: null, orgId: null });
+    await expect(requireUser()).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it("returns the user with orgId null when there is no active organization (issue #112)", async () => {
+    authMock.mockResolvedValue({ userId: "user_123", orgId: null });
+    await expect(requireUser()).resolves.toEqual({
+      userId: "user_123",
+      orgId: null,
+    });
+  });
+
+  it("returns userId and orgId when the user has an active organization", async () => {
+    authMock.mockResolvedValue({ userId: "user_123", orgId: "org_456" });
+    await expect(requireUser()).resolves.toEqual({
       userId: "user_123",
       orgId: "org_456",
     });

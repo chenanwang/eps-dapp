@@ -7,9 +7,9 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { requireAuth, checkAndDecrementQuota, create, getAgentENSName, resolveENS } =
+const { requireUser, checkAndDecrementQuota, create, getAgentENSName, resolveENS } =
   vi.hoisted(() => ({
-    requireAuth: vi.fn(),
+    requireUser: vi.fn(),
     checkAndDecrementQuota: vi.fn(),
     create: vi.fn(),
     getAgentENSName: vi.fn(),
@@ -18,7 +18,7 @@ const { requireAuth, checkAndDecrementQuota, create, getAgentENSName, resolveENS
 
 vi.mock("@/lib/auth", () => {
   class UnauthorizedError extends Error {}
-  return { requireAuth, UnauthorizedError };
+  return { requireUser, UnauthorizedError };
 });
 vi.mock("@/lib/quota", () => {
   class QuotaExceededError extends Error {}
@@ -49,7 +49,7 @@ const VALID_BODY = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireAuth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+  requireUser.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
   checkAndDecrementQuota.mockResolvedValue(undefined);
   getAgentENSName.mockResolvedValue(null);
   create.mockResolvedValue({ id: "svc_1", status: "STAGED" });
@@ -57,7 +57,7 @@ beforeEach(() => {
 
 describe("POST /api/service-requests", () => {
   it("returns 401 when unauthenticated", async () => {
-    requireAuth.mockRejectedValue(new UnauthorizedError("no session"));
+    requireUser.mockRejectedValue(new UnauthorizedError("no session"));
     const res = await POST(post(VALID_BODY));
     expect(res.status).toBe(401);
   });

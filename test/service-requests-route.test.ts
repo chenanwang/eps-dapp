@@ -6,10 +6,10 @@ import { QuotaExceededError, NoActiveSubscriptionError } from "../lib/quota";
 // Mock auth, quota, and db so the route can be exercised without a live Clerk
 // session, Stripe-backed subscription, or Postgres. The Solana address
 // validator (lib/solana/validate-address) runs for real — it is pure.
-const requireAuthMock = vi.fn();
+const requireUserMock = vi.fn();
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("../lib/auth")>("../lib/auth");
-  return { ...actual, requireAuth: () => requireAuthMock() };
+  return { ...actual, requireUser: () => requireUserMock() };
 });
 
 const checkAndDecrementQuotaMock = vi.fn();
@@ -55,10 +55,10 @@ function postRequest(body: unknown, init?: { raw?: string }): Request {
 
 describe("POST /api/service-requests", () => {
   beforeEach(() => {
-    requireAuthMock.mockReset();
+    requireUserMock.mockReset();
     checkAndDecrementQuotaMock.mockReset();
     createMock.mockReset();
-    requireAuthMock.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    requireUserMock.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
     checkAndDecrementQuotaMock.mockResolvedValue({ usageCount: 1, limit: 9 });
     createMock.mockResolvedValue({ id: "svc_1", status: "STAGED" });
   });
@@ -71,6 +71,7 @@ describe("POST /api/service-requests", () => {
     expect(checkAndDecrementQuotaMock).toHaveBeenCalledWith("org_1");
     const createArg = createMock.mock.calls[0][0];
     expect(createArg.data).toMatchObject({
+      userId: "user_1",
       caseCaption: "Smith v. Jones, No. 24-CV-1234",
       plaintiffName: "Smith",
       defendantName: "Jones",
@@ -83,8 +84,29 @@ describe("POST /api/service-requests", () => {
     expect(createArg.data.attestedAt).toBeInstanceOf(Date);
   });
 
+  it("stages a request for a user with no org, scoped to userId, skipping quota", async () => {
+    // Issue #112: a brand-new user with no active organization must be able to
+    // file. Quota meters the org's subscription, so with no org there is nothing
+    // to meter — the request is owned by `userId` and no org is connected.
+    requireUserMock.mockResolvedValue({ userId: "user_1", orgId: null });
+
+    const res = await POST(postRequest(validBody()));
+    expect(res.status).toBe(201);
+    await expect(res.json()).resolves.toEqual({ id: "svc_1", status: "STAGED" });
+
+    expect(checkAndDecrementQuotaMock).not.toHaveBeenCalled();
+    const createArg = createMock.mock.calls[0][0];
+    expect(createArg.data).toMatchObject({
+      userId: "user_1",
+      caseCaption: "Smith v. Jones, No. 24-CV-1234",
+      status: "STAGED",
+    });
+    // No org → no organization connect on the create payload.
+    expect(createArg.data.organization).toBeUndefined();
+  });
+
   it("returns 401 when unauthenticated and never touches quota", async () => {
-    requireAuthMock.mockRejectedValue(new UnauthorizedError());
+    requireUserMock.mockRejectedValue(new UnauthorizedError());
     const res = await POST(postRequest(validBody()));
     expect(res.status).toBe(401);
     expect(checkAndDecrementQuotaMock).not.toHaveBeenCalled();
