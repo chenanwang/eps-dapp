@@ -2,8 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import type { ServiceStatus } from "@prisma/client";
 import { ServiceActions } from "./ServiceActions";
+import { LiveStatus } from "./LiveStatus";
 
 /**
  * Service-request detail page (issue #113). Shows a single request's case
@@ -26,30 +26,6 @@ import { ServiceActions } from "./ServiceActions";
 interface PageProps {
   // Next.js 15 dynamic route params are async.
   params: Promise<{ id: string }>;
-}
-
-const STATUS_LABEL: Record<ServiceStatus, string> = {
-  STAGED: "Staged",
-  IN_PROGRESS: "Processing",
-  CONFIRMED: "Delivered",
-  FAILED: "Failed",
-};
-
-const STATUS_BADGE: Record<ServiceStatus, string> = {
-  STAGED: "bg-amber-100 text-amber-800",
-  IN_PROGRESS: "bg-blue-100 text-blue-800",
-  CONFIRMED: "bg-green-100 text-green-800",
-  FAILED: "bg-red-100 text-red-800",
-};
-
-function StatusBadge({ status }: { status: ServiceStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE[status]}`}
-    >
-      {STATUS_LABEL[status]}
-    </span>
-  );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -111,7 +87,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-2xl font-bold">{service.caseCaption}</h1>
-          <StatusBadge status={service.status} />
+          <LiveStatus id={service.id} initialStatus={service.status} />
         </div>
       </header>
 
