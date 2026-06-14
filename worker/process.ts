@@ -1,6 +1,7 @@
 import { buildServiceMemo, getRentExemptMinimum, getSolanaAdapter } from "@/lib/chain";
 import type { ClaimableRequest, WorkerDb } from "@/worker/index";
 import { recordOnHedera } from "@/lib/hedera/HederaService";
+import { mintAndTransferProofNFT } from "@/lib/hedera/mintAndTransferProofNFT";
 
 /**
  * Thrown when the finalized on-chain memo does not match the memo we intended to
@@ -136,4 +137,23 @@ export async function processServiceRequest(
       await db.serviceRequest.update({ where: { id: row.id }, data: updates });
     }
   }).catch(err => console.error("[worker] Hedera non-fatal error:", err));
+
+  // Non-blocking HTS proof-of-service NFT ROUND-TRIP (issue #148, Fix 4): mint one
+  // NFT and TRANSFER it to the demo defendant account — a real on-chain token
+  // transfer (Hedera "AI & Agentic Payments"). Best-effort: failures are logged
+  // but never throw, so a Hedera hiccup can't undo a confirmed delivery.
+  mintAndTransferProofNFT({
+    caseId:     row.id,
+    hcsTopicId: process.env.HEDERA_HCS_TOPIC_ID ?? null,
+  }).then(async (nft) => {
+    if (!nft) return;
+    await db.serviceRequest.update({
+      where: { id: row.id },
+      data: {
+        htsTokenId:    nft.tokenId,
+        htsNftSerial:  nft.serial,
+        htsTransferTx: nft.transferTx,
+      },
+    });
+  }).catch(err => console.error("[worker] Hedera NFT transfer non-fatal error:", err));
 }
