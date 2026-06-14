@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyAgentKitAvailable } from "@/lib/hedera/HederaAgentKit";
 
 /**
  * GET /api/hedera/status — unauthenticated Hedera connectivity probe.
@@ -38,9 +39,14 @@ export async function GET() {
   if (!operatorKey) missing.push("HEDERA_OPERATOR_KEY");
   if (!topicId) missing.push("HEDERA_HCS_TOPIC_ID");
 
+  // HederaAgentKit availability is independent of operator credentials — it only
+  // checks that the @hashgraph/hedera-agent-kit package and its plugins import
+  // cleanly (AI & Agentic Payments track). Surface it on every probe.
+  const agentKitAvailable = await verifyAgentKitAvailable();
+
   if (missing.length > 0) {
     return NextResponse.json(
-      { connected: false, error: "missing env vars", missing },
+      { connected: false, agentKitAvailable, error: "missing env vars", missing },
       { status: 200 },
     );
   }
@@ -51,6 +57,8 @@ export async function GET() {
       topicId,
       operatorId: maskOperatorId(operatorId!),
       connected: true,
+      agentKitAvailable,
+      tokenId: process.env.HEDERA_NFT_TOKEN_ID ?? null,
       timestamp: new Date().toISOString(),
     },
     { status: 200 },
