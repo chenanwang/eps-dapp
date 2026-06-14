@@ -29,7 +29,7 @@ function looksLikeENSName(value: string): boolean {
 /**
  * New service-request intake form (P2/T-203).
  *
- * Collects the case caption and parties, the recipient Solana wallet, an
+ * Collects the case caption and parties, the recipient ENS name or EVM wallet, an
  * optional court-order flag, and a required attestation. All values are
  * re-validated server-side by POST /api/service-requests before any quota is
  * consumed — this form's client checks are purely for fast feedback. Copy is
@@ -145,7 +145,7 @@ export default function NewServiceRequestPage() {
         <h1 className="text-3xl font-bold">New service request</h1>
         <p className="text-foreground/70 text-sm">
           EPS facilitates service of process and generates court-ready proof of delivery. Enter the
-          case details and the recipient&apos;s Solana wallet address below.
+          case details and the recipient&apos;s ENS name or EVM wallet address below.
         </p>
       </header>
 
@@ -201,8 +201,8 @@ export default function NewServiceRequestPage() {
 
         <Field
           id="recipientWallet"
-          label="Recipient wallet (Solana address)"
-          hint="Base58 address of the party to be served. Program addresses (PDAs) are not accepted."
+          label="Recipient wallet or ENS name"
+          hint="Enter the recipient's ENS name (e.g. vitalik.eth) or EVM wallet address (0x...)"
           errors={fieldErrors.recipientWallet}
         >
           <input
