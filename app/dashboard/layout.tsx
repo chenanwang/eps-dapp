@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import DemoBanner from "@/components/DemoBanner";
 
 /**
- * Dashboard chrome: a persistent top nav so authenticated pages are no longer
- * dead-ends. Provides the EPS home link, a "New request" action and the Clerk
- * user menu (sign out, manage account) on every /dashboard route.
+ * Dashboard chrome: persistent top nav + optional demo banner.
  */
 export default function DashboardLayout({
   children,
@@ -13,6 +12,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen">
+      <DemoBanner />
       <header className="border-b border-gray-200">
         <nav className="mx-auto flex w-full max-w-5xl items-center justify-between px-8 py-4">
           <Link href="/dashboard" className="text-lg font-bold tracking-tight">
