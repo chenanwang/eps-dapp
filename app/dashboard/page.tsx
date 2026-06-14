@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import DashboardFlash from "./DashboardFlash";
 
 /**
  * Authenticated services dashboard (T-405). Lists the caller's own service
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl p-8">
+      <DashboardFlash />
       <h1 className="mb-6 text-2xl font-bold">Your services</h1>
 
       {services.length === 0 ? (
@@ -54,6 +56,7 @@ export default async function DashboardPage() {
                 <th className="px-3 py-2 font-semibold">Service Name</th>
                 <th className="px-3 py-2 font-semibold">Case Ref</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">View</th>
                 <th className="px-3 py-2 font-semibold">Notice</th>
                 <th className="px-3 py-2 font-semibold">Certificate</th>
               </tr>
@@ -71,9 +74,24 @@ export default async function DashboardPage() {
 
                 return (
                   <tr key={service.id} className="border-b border-gray-200">
-                    <td className="px-3 py-2">{service.caseCaption}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/dashboard/${service.id}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {service.caseCaption}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2">{service.noticeToken ?? "—"}</td>
                     <td className="px-3 py-2">{status}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/dashboard/${service.id}`}
+                        className="text-blue-600 underline"
+                      >
+                        View →
+                      </Link>
+                    </td>
                     <td className="px-3 py-2">
                       {service.noticeToken ? (
                         <Link
