@@ -25,7 +25,7 @@ export default function DashboardLayout({
             >
               ＋ New request
             </Link>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
           </div>
         </nav>
       </header>
