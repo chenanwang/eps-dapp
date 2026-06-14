@@ -13,7 +13,9 @@ export async function sendFirstAccessAlert(noticeId: string) {
       select: { caseCaption: true, organization: { select: { ownerEmail: true } } },
     });
     if (!notice) return;
-    const to = notice.organization.ownerEmail;
+    // No org (a user-scoped request, issue #112) or no owner email → no one to
+    // alert; skip silently.
+    const to = notice.organization?.ownerEmail;
     if (!to) return;
     await resend.emails.send({
       from: 'EPS <noreply@eps.app>',

@@ -19,6 +19,16 @@ export interface AuthContext {
   orgId: string;
 }
 
+/**
+ * Auth context for routes scoped to the user rather than an organization. The
+ * `orgId` is whatever active org the session carries, or `null` when the user
+ * has none — both are valid (see {@link requireUser}).
+ */
+export interface UserAuthContext {
+  userId: string;
+  orgId: string | null;
+}
+
 /** Clerk role slug for an organization administrator. */
 export const ORG_ADMIN_ROLE = "org:admin";
 
@@ -42,6 +52,28 @@ export async function requireAuth(): Promise<AuthContext> {
   }
 
   return { userId, orgId };
+}
+
+/**
+ * Resolve the current request's auth context for USER-scoped routes. Requires
+ * an authenticated user but NOT an active organization — `orgId` is returned as
+ * `null` when the session has no active org. Use this where work belongs to the
+ * individual filer rather than a billable org tenant (e.g. staging a service
+ * request, issue #112), so a brand-new user with no organization is not blocked.
+ *
+ * `userId`/`orgId` come from the verified Clerk session token only — never from
+ * client input.
+ *
+ * @throws {UnauthorizedError} when there is no authenticated user.
+ */
+export async function requireUser(): Promise<UserAuthContext> {
+  const { userId, orgId } = await auth();
+
+  if (!userId) {
+    throw new UnauthorizedError();
+  }
+
+  return { userId, orgId: orgId ?? null };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth, UnauthorizedError } from "@/lib/auth";
+import { requireUser, UnauthorizedError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   assertValidRecipient,
@@ -39,13 +39,18 @@ const ServiceRequestInput = z.object({
 /**
  * POST /api/service-requests — stage a new service-of-process request.
  *
- * Auth is required; the org/user come from the verified Clerk session token,
- * never the request body. The flow, in order:
+ * Auth is required; the user (and org, if any) come from the verified Clerk
+ * session token, never the request body. The request is owned by the filer's
+ * `userId`, so a user with NO active organization can still file (issue #112).
+ * The flow, in order:
  *   1. validate the body server-side (zod) — bad input is rejected BEFORE any
  *      quota is consumed (P2 gate: "bad input rejected pre-quota");
  *   2. validate the recipient wallet is an on-curve Solana address;
- *   3. decrement the org's quota (`checkAndDecrementQuota`);
- *   4. create the {@link ServiceRequest} in the STAGED state.
+ *   3. if the filer has an active org, decrement that org's quota
+ *      (`checkAndDecrementQuota`); a user with no org has no subscription to
+ *      meter, so this step is skipped for them;
+ *   4. create the {@link ServiceRequest} in the STAGED state, stamped with the
+ *      filer's `userId` and connected to their org when they have one.
  *
  * Caption fields are confidential legal-filing metadata and are never logged
  * (CLAUDE.md hard rule #3).
@@ -65,7 +70,7 @@ export async function POST(req: Request): Promise<Response> {
 
   let authContext;
   try {
-    authContext = await requireAuth();
+    authContext = await requireUser();
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -128,27 +133,33 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // (3) Consume quota BEFORE creating the record. A missing/exhausted plan is a
-  // client-correctable condition (402/403), not a server error.
-  try {
-    await checkAndDecrementQuota(authContext.orgId);
-  } catch (err) {
-    if (err instanceof QuotaExceededError) {
-      return NextResponse.json({ error: err.message }, { status: 403 });
+  // (3) Consume quota BEFORE creating the record — but only when the filer has
+  // an active org to meter against. A user with no org has no subscription, so
+  // there is nothing to decrement (issue #112). A missing/exhausted plan for an
+  // org filer is a client-correctable condition (402/403), not a server error.
+  if (authContext.orgId) {
+    try {
+      await checkAndDecrementQuota(authContext.orgId);
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        return NextResponse.json({ error: err.message }, { status: 403 });
+      }
+      if (err instanceof NoActiveSubscriptionError) {
+        return NextResponse.json({ error: err.message }, { status: 402 });
+      }
+      throw err;
     }
-    if (err instanceof NoActiveSubscriptionError) {
-      return NextResponse.json({ error: err.message }, { status: 402 });
-    }
-    throw err;
   }
 
   // (4) Stage the request. `attestedAt` is stamped server-side at the moment of
-  // attestation; the org is resolved from the verified token, not the body.
+  // attestation; the owner (`userId`) and org both come from the verified token,
+  // not the body. The org is connected only when the filer has an active one.
   const created = await prisma.serviceRequest.create({
     data: {
-      organization: {
-        connect: { clerkOrgId: authContext.orgId },
-      },
+      userId: authContext.userId,
+      ...(authContext.orgId
+        ? { organization: { connect: { clerkOrgId: authContext.orgId } } }
+        : {}),
       caseCaption: input.caseCaption,
       plaintiffName: input.plaintiffName,
       defendantName: input.defendantName,

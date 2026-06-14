@@ -84,8 +84,18 @@ enum ServiceStatus {
 /// fields are confidential legal-filing metadata Ã¢ÂÂ never logged (hard rule #3).
 model ServiceRequest {
   id              String        @id @default(uuid())
-  orgId           String
-  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// Verified Clerk user id of the filer who staged this request. This is the
+  /// primary owner scope: the dashboard lists a user's own requests by `userId`,
+  /// so a brand-new user with no organization can still file and see their work
+  /// (issue #112). Nullable only because rows staged before this column existed
+  /// have no value; all new intakes stamp it.
+  userId          String?
+  /// Owning organization (the billable tenant), when the filer has an active
+  /// Clerk org. OPTIONAL: a user with no active organization files unscoped to
+  /// any org, so quota metering (which keys on the org's subscription) is simply
+  /// skipped for them. Org-scoped intakes still connect and meter as before.
+  orgId           String?
+  organization    Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
   caseCaption     String
   plaintiffName   String
   defendantName   String
@@ -134,6 +144,9 @@ model ServiceRequest {
 
 
   @@index([orgId])
+  // The dashboard lists a user's own requests newest-first (issue #112) — index
+  // the owner scope for that hot path.
+  @@index([userId])
   // The worker claims rows by status (STAGED/IN_PROGRESS), and the dashboard
   // lists an org's requests newest-first Ã¢ÂÂ index both for those hot paths (T107).
   @@index([status])

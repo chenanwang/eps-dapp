@@ -71,7 +71,7 @@ export async function recordFirstAccess(
       },
     });
 
-    const ownerEmail = service?.organization.ownerEmail ?? null;
+    const ownerEmail = service?.organization?.ownerEmail ?? null;
     const caseRef = service?.caseCaption ?? "";
 
     // Already viewed: no-op, report the original time.
