@@ -16,7 +16,21 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body>{children}</body>
+        <body>
+          {children}
+          {/* Global attribution footer (issue #159, Fix 5). */}
+          <footer className="border-t border-foreground/10 py-3 text-center text-xs text-foreground/40">
+            Anchored on Hedera · Delivered by{" "}
+            <a
+              href="https://app.ens.domains/youhavebeenserved.eth"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              youhavebeenserved.eth
+            </a>
+          </footer>
+        </body>
       </html>
     </ClerkProvider>
   );

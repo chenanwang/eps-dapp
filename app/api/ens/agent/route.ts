@@ -13,8 +13,8 @@ const client = createPublicClient({
 export async function GET() {
   let agentAddress: string | null = null
   let ensName: string | null = null
-  let textRecords: Record<string, string> = {}
-  let credentials: Record<string, string> = {}
+  const textRecords: Record<string, string> = {}
+  const credentials: Record<string, string> = {}
 
   try {
     const resolved = await client.getEnsAddress({ name: AGENT_ENS as `${string}.eth` })

@@ -229,6 +229,15 @@ export default function NewServiceRequestPage() {
               </p>
             ) : resolvedAddress ? (
               <p className="flex items-center gap-1 text-xs text-green-700">
+                {/* Recipient ENS avatar (issue #159, Fix 2): hidden on load error
+                    so a name with no avatar record degrades cleanly. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://metadata.ens.domains/mainnet/avatar/${recipientWallet.trim()}`}
+                  alt=""
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                  className="h-5 w-5 rounded-full"
+                />
                 <span aria-hidden>↳</span>
                 <span>
                   Resolves to <span className="font-mono">{resolvedAddress}</span>
@@ -280,6 +289,30 @@ export default function NewServiceRequestPage() {
         >
           {submitting ? "Staging…" : "Stage service request"}
         </button>
+
+        {/* Trust badge (issue #159, Fix 3) — attributes delivery to the
+            ENSIP-25 compliant process-server agent. */}
+        <p className="flex items-center gap-1.5 pt-2 text-xs text-foreground/50">
+          🤖 Process delivery handled by{" "}
+          <a
+            href="https://app.ens.domains/youhavebeenserved.eth"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            youhavebeenserved.eth
+          </a>{" "}
+          —{" "}
+          <a
+            href="https://docs.ens.domains/ensip/25/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            ENSIP-25
+          </a>{" "}
+          compliant AI agent
+        </p>
       </form>
     </main>
   );

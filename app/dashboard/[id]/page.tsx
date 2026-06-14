@@ -4,6 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ServiceActions } from "./ServiceActions";
 import { LiveStatus } from "./LiveStatus";
+import { AgentIdentity } from "./AgentIdentity";
 
 /**
  * Service-request detail page (issue #113). Shows a single request's case
@@ -130,52 +131,10 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         </dl>
       </section>
 
-      {/* Agent identity (issue #148, Fix 2) — the ENSIP-25/26 compliant AI process
-          server agent that anchors each proof. Surfaced so the on-chain agent
-          identity is visible to anyone reviewing a served notice. */}
-      <section className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-blue-400">🤖 Agent Identity (ENSIP-25)</h3>
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-400">Process Server Agent</span>
-            <a
-              href="https://app.ens.domains/youhavebeenserved.eth"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-blue-400 hover:underline"
-            >
-              youhavebeenserved.eth ↗
-            </a>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-400">Agent Address</span>
-            <span className="break-all font-mono text-xs text-gray-300">
-              0xd116A147A95f406a4A4F589c44d588cfE58ef6E0
-            </span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-400">Standard</span>
-            <div className="flex gap-2">
-              <a
-                href="https://docs.ens.domains/ensip/25/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:underline"
-              >
-                ENSIP-25 ↗
-              </a>
-              <a
-                href="https://docs.ens.domains/ensip/26/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:underline"
-              >
-                ENSIP-26 ↗
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Agent identity (issue #159, Fix 1) — the ENSIP-25/26 compliant AI process
+          server agent that anchors each proof, rendered live from its ENS profile
+          (avatar, description, url, credential status) via /api/ens/agent. */}
+      <AgentIdentity />
 
       {/* Hedera consensus proof (issue #148, Fix 3) — ALWAYS shown so a judge sees
           the Hedera integration in every state. Progressive disclosure: once a
