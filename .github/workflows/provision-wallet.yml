@@ -13,6 +13,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm add @dynamic-labs-wallet/node-evm
       - name: Create agent wallet (V1 API)
         env:
           DYNAMIC_BEARER_TOKEN: dyn_aSQYijSHt3aXBntDhYUj0BkMnj7bSBys9xUO29FOGihzpSSces1Pvt3L
@@ -30,13 +31,12 @@ jobs:
           const client = new DynamicEvmWalletClient({ environmentId });
           await client.authenticateApiToken(authToken);
 
-          const { walletMetadata, publicKeyHex, externalServerKeyShares } =
-            await client.createWalletAccount({
-              thresholdSignatureScheme: ThresholdSignatureScheme.TWO_OF_TWO,
-              password,
-              onError: (e) => { console.error('[Error]', e); process.exit(1); },
-              backUpToDynamic: true,
-            });
+          const { walletMetadata, publicKeyHex } = await client.createWalletAccount({
+            thresholdSignatureScheme: ThresholdSignatureScheme.TWO_OF_TWO,
+            password,
+            onError: (e) => { console.error('[Error]', e.message); process.exit(1); },
+            backUpToDynamic: true,
+          });
 
           const walletId = walletMetadata?.id ?? walletMetadata?.walletId ?? 'unknown';
           const address = walletMetadata?.accountAddress ?? publicKeyHex ?? 'unknown';
