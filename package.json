@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "worker": "tsx worker/index.ts",
     "worker:once": "DRAIN_AND_EXIT=1 tsx worker/index.ts",
