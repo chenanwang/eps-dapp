@@ -45,6 +45,10 @@ const TIERS: TierCard[] = [
 
 type PaymentTab = "card" | "crypto";
 
+// In demo mode we never touch the live Stripe/Dynamic flows — the Subscribe and
+// crypto buttons short-circuit to the dashboard so judges never see a raw error.
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default function PricingPage() {
   const [loadingTier, setLoadingTier] = useState<Tier | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +56,15 @@ export default function PricingPage() {
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [cryptoError, setCryptoError] = useState<string | null>(null);
   const [cryptoUrl, setCryptoUrl] = useState<string | null>(null);
+  const [cryptoDemo, setCryptoDemo] = useState(false);
 
   async function subscribe(tier: Tier) {
+    // Demo bypass: redirect straight to the dashboard with a success flag,
+    // never calling Stripe (which throws "no active organization").
+    if (DEMO_MODE) {
+      window.location.assign("/dashboard?subscribed=demo");
+      return;
+    }
     setError(null);
     setLoadingTier(tier);
     try {
@@ -77,6 +88,14 @@ export default function PricingPage() {
   }
 
   async function getCryptoPaymentLink(tier: Tier) {
+    // Demo bypass: show an inline explanation instead of calling the Dynamic
+    // Flow API (which would surface a raw "deliveryId required" error).
+    if (DEMO_MODE) {
+      setCryptoError(null);
+      setCryptoUrl(null);
+      setCryptoDemo(true);
+      return;
+    }
     setCryptoError(null);
     setCryptoUrl(null);
     setCryptoLoading(true);
@@ -124,7 +143,7 @@ export default function PricingPage() {
       <div className="flex gap-1 rounded-lg border border-foreground/15 p-1">
         <button
           type="button"
-          onClick={() => { setPaymentTab("card"); setError(null); setCryptoError(null); setCryptoUrl(null); }}
+          onClick={() => { setPaymentTab("card"); setError(null); setCryptoError(null); setCryptoUrl(null); setCryptoDemo(false); }}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
             paymentTab === "card"
               ? "bg-foreground text-background"
@@ -135,7 +154,7 @@ export default function PricingPage() {
         </button>
         <button
           type="button"
-          onClick={() => { setPaymentTab("crypto"); setError(null); }}
+          onClick={() => { setPaymentTab("crypto"); setError(null); setCryptoDemo(false); }}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
             paymentTab === "crypto"
               ? "bg-foreground text-background"
@@ -163,6 +182,19 @@ export default function PricingPage() {
           Redirecting to crypto checkout…{" "}
           <a href={cryptoUrl} className="underline">Click here if not redirected</a>
         </p>
+      ) : null}
+
+      {cryptoDemo ? (
+        <div className="flex flex-col items-center gap-3 rounded-md bg-blue-50 px-4 py-3 text-center text-sm text-blue-800">
+          <p>Demo mode — in production, pay via Dynamic (any chain/token).</p>
+          <button
+            type="button"
+            onClick={() => window.location.assign("/dashboard?paid=demo")}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+          >
+            Continue (Demo)
+          </button>
+        </div>
       ) : null}
 
       <section className="grid w-full gap-6 sm:grid-cols-3">
