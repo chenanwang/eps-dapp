@@ -24,6 +24,12 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
     "@clerk/nextjs": "^7.5.2",
+    "@dynamic-labs-wallet/node": "^1.0.0",
+    "@dynamic-labs-wallet/node-evm": "^1.0.38",
+    "@dynamic-labs/sdk-api": "^0.0.1045",
+    "@ensdomains/ensjs": "^4.0.2",
+    "@hashgraph/hedera-agent-kit": "^4.0.0",
+    "@hashgraph/sdk": "^2.62.0",
     "@prisma/client": "^6.1.0",
     "@solana/spl-memo": "^0.2.5",
     "@solana/web3.js": "^1.98.4",
@@ -35,13 +41,8 @@
     "react-dom": "19.2.7",
     "resend": "^6.12.4",
     "stripe": "^22.2.0",
-    "zod": "^4.4.3",
     "viem": "^2.21.0",
-    "@ensdomains/ensjs": "^4.0.2",
-    "@hashgraph/sdk": "^2.62.0",
-    "@hashgraph/hedera-agent-kit": "^4.0.0",
-    "@dynamic-labs-wallet/node": "^1.0.0",
-    "@dynamic-labs/sdk-api": "^0.0.1045"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
