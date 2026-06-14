@@ -71,6 +71,20 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         (service.hcsSequenceNumber != null ? `/message/${service.hcsSequenceNumber}` : "")
       : null);
 
+  // HashScan link to the topic itself (always available once a topic id exists).
+  const hederaTopicLink = service.hcsTopicId
+    ? `https://hashscan.io/testnet/topic/${service.hcsTopicId}`
+    : null;
+
+  // HTS NFT receipt link (Section 5), when a proof NFT was minted.
+  const hederaNftLink =
+    service.htsMirrorUrl ??
+    (service.htsTokenId
+      ? `https://hashscan.io/testnet/token/${service.htsTokenId}`
+      : null);
+
+  const hasBlockchainProof = Boolean(service.hcsTopicId || service.htsTokenId);
+
   // Solana delivery proof: devnet explorer link for the persisted signature.
   const solanaLink = service.txSignature
     ? `https://explorer.solana.com/tx/${service.txSignature}?cluster=devnet`
@@ -99,6 +113,67 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           <Detail label="Created" value={created} />
         </dl>
       </section>
+
+      {/* Blockchain Proof — Hedera HCS consensus stamp + HTS NFT receipt (Sections
+          4 & 5). Shown whenever a proof exists, independent of delivery status, so
+          judges can verify the anchor on HashScan immediately after intake. */}
+      {hasBlockchainProof ? (
+        <section className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-6">
+          <h2 className="text-lg font-semibold">Blockchain Proof</h2>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            {service.hcsTopicId ? (
+              <Detail label="Hedera HCS topic" value={service.hcsTopicId} />
+            ) : null}
+            {service.hcsSequenceNumber != null ? (
+              <Detail label="HCS sequence #" value={String(service.hcsSequenceNumber)} />
+            ) : null}
+            {service.hcsConsensusTime ? (
+              <Detail label="Consensus time" value={service.hcsConsensusTime} />
+            ) : null}
+            {service.htsTokenId ? (
+              <Detail
+                label="HTS NFT"
+                value={
+                  service.htsSerialNumber != null
+                    ? `${service.htsTokenId} #${service.htsSerialNumber}`
+                    : service.htsTokenId
+                }
+              />
+            ) : null}
+          </dl>
+          <div className="flex flex-col gap-1.5">
+            {hederaLink ? (
+              <a
+                href={hederaLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit text-sm text-blue-600 hover:underline"
+              >
+                View consensus message on HashScan ↗
+              </a>
+            ) : hederaTopicLink ? (
+              <a
+                href={hederaTopicLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit text-sm text-blue-600 hover:underline"
+              >
+                View HCS topic on HashScan ↗
+              </a>
+            ) : null}
+            {hederaNftLink ? (
+              <a
+                href={hederaNftLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit text-sm text-blue-600 hover:underline"
+              >
+                View proof-of-service NFT on HashScan ↗
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {/* Status-conditional action area. */}
       {service.status === "STAGED" ? (
@@ -145,19 +220,6 @@ export default async function ServiceDetailPage({ params }: PageProps) {
                   className="break-all text-blue-600 hover:underline"
                 >
                   {service.txSignature}
-                </a>
-              </p>
-            ) : null}
-            {hederaLink ? (
-              <p className="text-sm">
-                Hedera consensus proof:{" "}
-                <a
-                  href={hederaLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  View on HashScan ↗
                 </a>
               </p>
             ) : null}

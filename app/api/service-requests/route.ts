@@ -12,6 +12,7 @@ import {
   NoActiveSubscriptionError,
 } from "@/lib/quota";
 import { resolveENS, getAgentENSName } from "@/lib/ens/ENSResolver";
+import { recordOnHedera } from "@/lib/hedera/HederaService";
 import { rateLimit, clientKey, rateLimitHeaders } from "@/lib/rate-limit";
 
 // Intake is quota-metered downstream, but rate-limit the endpoint itself
@@ -30,6 +31,12 @@ const ServiceRequestInput = z.object({
   plaintiffName: z.string().trim().min(1, "Plaintiff name is required.").max(300),
   defendantName: z.string().trim().min(1, "Defendant name is required.").max(300),
   recipientWallet: z.string().trim().min(1, "Recipient wallet is required."),
+  // Optional client-side ENS resolution, sent as a fallback. The server always
+  // re-resolves authoritatively (never trusting the client), but when server-side
+  // resolution has a transient miss these let us proceed instead of hard-blocking
+  // the filer (Section 1 — soft warning, not hard error).
+  recipientEnsName: z.string().trim().nullish(),
+  recipientResolvedAddress: z.string().trim().nullish(),
   courtOrderFlag: z.boolean().optional().default(false),
   attested: z.literal(true, {
     message: "You must attest to the accuracy of the case caption.",
@@ -101,18 +108,33 @@ export async function POST(req: Request): Promise<Response> {
   let ensDisplayName: string | null = null;
   let agentENSName: string | null = null;
 
-  // If it looks like an ENS name (contains a dot, not a plain IP), resolve it
+  // If it looks like an ENS name (contains a dot, not a plain IP), resolve it.
+  // ENS resolution is treated as a SOFT step (Section 1): a transient resolver
+  // miss must not hard-block intake. Resolution precedence is:
+  //   1. authoritative server-side resolution (never trusts the client), else
+  //   2. the client-supplied resolved address, when it is a valid EVM address.
+  // Only when BOTH are absent do we reject — there is genuinely no address to serve.
+  const clientResolved =
+    typeof input.recipientResolvedAddress === "string" &&
+    /^0x[0-9a-fA-F]{40}$/.test(input.recipientResolvedAddress.trim())
+      ? input.recipientResolvedAddress.trim()
+      : null;
+
   if (recipientInput.includes('.') && !recipientInput.match(/^[0-9.]+$/)) {
     const ensResult = await resolveENS(recipientInput);
-    if (ensResult.wasENSName && !ensResult.address) {
+    if (ensResult.address) {
+      resolvedWallet = ensResult.address;
+      ensDisplayName = ensResult.displayName !== ensResult.address ? ensResult.displayName : null;
+    } else if (clientResolved) {
+      // Server-side resolution missed but the client already resolved this name
+      // (e.g. RPC blip): proceed with the client's address rather than blocking.
+      resolvedWallet = clientResolved;
+      ensDisplayName = recipientInput;
+    } else if (ensResult.wasENSName) {
       return NextResponse.json(
         { error: `ENS name "${recipientInput}" does not resolve to a wallet address.` },
         { status: 400 },
       );
-    }
-    if (ensResult.address) {
-      resolvedWallet = ensResult.address;
-      ensDisplayName = ensResult.displayName !== ensResult.address ? ensResult.displayName : null;
     }
   }
   agentENSName = await getAgentENSName();
@@ -170,8 +192,44 @@ export async function POST(req: Request): Promise<Response> {
       ensDisplayName,
       agentENSName,
     },
-    select: { id: true, status: true },
+    select: { id: true, status: true, caseCaption: true, recipientWallet: true },
   });
+
+  // (5) Anchor a Hedera Consensus Service proof (and HTS NFT receipt) at intake
+  // time so the service detail page can show a "Blockchain Proof" immediately
+  // (Sections 4 & 5). Per CLAUDE.md hard rules, Hedera failures must NEVER fail
+  // the request: the whole block is wrapped in try/catch and any persistence of
+  // proof fields is best-effort. The worker re-records authoritatively on final
+  // delivery (worker/process.ts) — this is the demo-facing early stamp.
+  try {
+    const hedera = await recordOnHedera({
+      deliveryId: created.id,
+      documentHash: "", // document is uploaded after staging; hash anchored on delivery
+      caseRef: created.caseCaption,
+      servedTo: created.recipientWallet,
+      servedBy: agentENSName ?? process.env.EVM_APP_WALLET_ADDRESS ?? "eps-agent",
+    });
+    const updates: Record<string, unknown> = {};
+    if (hedera.hcs) {
+      updates.hcsTopicId = hedera.hcs.topicId;
+      updates.hcsSequenceNumber = hedera.hcs.sequenceNumber;
+      updates.hcsConsensusTime = hedera.hcs.consensusTimestamp;
+      updates.hcsTxId = hedera.hcs.transactionId;
+      updates.hcsMirrorUrl = hedera.hcs.mirrorNodeUrl;
+    }
+    if (hedera.hts) {
+      updates.htsTokenId = hedera.hts.tokenId;
+      updates.htsSerialNumber = hedera.hts.serialNumber;
+      updates.htsTxId = hedera.hts.transactionId;
+      updates.htsMirrorUrl = hedera.hts.mirrorNodeUrl;
+    }
+    if (Object.keys(updates).length > 0) {
+      await prisma.serviceRequest.update({ where: { id: created.id }, data: updates });
+    }
+  } catch (err) {
+    // Never block intake on a Hedera hiccup — log (no document bytes) and move on.
+    console.error("[service-requests] Hedera anchoring non-fatal error:", err);
+  }
 
   return NextResponse.json({ id: created.id, status: created.status }, { status: 201 });
 }
