@@ -8,9 +8,25 @@ import { http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { createEnsPublicClient } from '@ensdomains/ensjs';
 
+const RPC_URL = process.env.EVM_RPC_ETH_MAINNET ?? 'https://eth.llamarpc.com';
+
+// Startup sanity check: a missing or placeholder RPC URL silently breaks every
+// ENS lookup (resolution returns null with a 200), so surface it loudly in logs.
+if (!process.env.EVM_RPC_ETH_MAINNET) {
+  console.warn(
+    '[ENSResolver] EVM_RPC_ETH_MAINNET is not set — falling back to public RPC ' +
+      '(https://eth.llamarpc.com), which may be rate-limited. Set a dedicated mainnet RPC URL.',
+  );
+} else if (/YOUR_API_KEY|<.*>|sepolia|goerli|holesky/i.test(RPC_URL)) {
+  console.warn(
+    '[ENSResolver] EVM_RPC_ETH_MAINNET looks like a placeholder or non-mainnet URL: ' +
+      `"${RPC_URL}". ENS lookups require a valid Ethereum *mainnet* RPC endpoint.`,
+  );
+}
+
 const ensClient = createEnsPublicClient({
   chain: mainnet,
-  transport: http(process.env.EVM_RPC_ETH_MAINNET ?? 'https://eth.llamarpc.com'),
+  transport: http(RPC_URL),
 });
 
 export interface ENSResolution {
@@ -29,7 +45,8 @@ export async function resolveENS(input: string): Promise<ENSResolution> {
     try {
       const result = await ensClient.getAddressRecord({ name: trimmed });
       return { address: result?.value ?? null, displayName: trimmed, wasENSName: true, primaryName: null };
-    } catch {
+    } catch (err) {
+      console.error(`[ENSResolver] forward resolution failed for "${trimmed}" via ${RPC_URL}:`, err);
       return { address: null, displayName: trimmed, wasENSName: true, primaryName: null };
     }
   }
@@ -39,7 +56,8 @@ export async function resolveENS(input: string): Promise<ENSResolution> {
       const result = await ensClient.getName({ address: trimmed as `0x${string}` });
       const name = result?.name ?? null;
       return { address: trimmed, displayName: name ?? trimmed, wasENSName: false, primaryName: name };
-    } catch {
+    } catch (err) {
+      console.error(`[ENSResolver] reverse resolution failed for "${trimmed}" via ${RPC_URL}:`, err);
       return { address: trimmed, displayName: trimmed, wasENSName: false, primaryName: null };
     }
   }
@@ -53,7 +71,8 @@ export async function getAgentENSName(): Promise<string | null> {
   try {
     const result = await ensClient.getName({ address: addr as `0x${string}` });
     return result?.name ?? null;
-  } catch {
+  } catch (err) {
+    console.error(`[ENSResolver] agent name lookup failed for "${addr}" via ${RPC_URL}:`, err);
     return null;
   }
 }
@@ -62,7 +81,8 @@ export async function getAgentTextRecord(ensName: string, key: string): Promise<
   try {
     const result = await ensClient.getTextRecord({ name: ensName, key });
     return result ?? null;
-  } catch {
+  } catch (err) {
+    console.error(`[ENSResolver] text record lookup failed for "${ensName}" key "${key}" via ${RPC_URL}:`, err);
     return null;
   }
 }

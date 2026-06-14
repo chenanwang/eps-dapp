@@ -18,6 +18,22 @@ for (const key of REQUIRED_ENV_VARS) {
   }
 }
 
+// Soft validation: ENS resolution needs a real Ethereum *mainnet* RPC URL. A
+// missing or placeholder value makes every ENS lookup return null with a 200,
+// which is hard to diagnose — so warn loudly at startup instead of failing.
+const ethRpc = process.env.EVM_RPC_ETH_MAINNET;
+if (!ethRpc) {
+  console.warn(
+    "[env] EVM_RPC_ETH_MAINNET is not set — ENS resolution will fall back to a " +
+      "public RPC that may be rate-limited or unreliable.",
+  );
+} else if (/YOUR_API_KEY|<.*>|sepolia|goerli|holesky/i.test(ethRpc)) {
+  console.warn(
+    "[env] EVM_RPC_ETH_MAINNET looks like a placeholder or non-mainnet URL: " +
+      `"${ethRpc}". ENS resolution requires a valid Ethereum mainnet RPC endpoint.`,
+  );
+}
+
 export const env = {
   DATABASE_URL: process.env.DATABASE_URL!,
   RESEND_API_KEY: process.env.RESEND_API_KEY!,
