@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Tier } from "@/lib/stripe";
+
+// In demo mode (NEXT_PUBLIC_DEMO_MODE=true) we never call Stripe or the crypto
+// payment provider — the buttons short-circuit straight to the dashboard so the
+// platform can be demoed end-to-end without live payment credentials.
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 interface TierCard {
   id: Tier;
@@ -46,6 +52,7 @@ const TIERS: TierCard[] = [
 type PaymentTab = "card" | "crypto";
 
 export default function PricingPage() {
+  const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<Tier | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paymentTab, setPaymentTab] = useState<PaymentTab>("card");
@@ -54,6 +61,11 @@ export default function PricingPage() {
   const [cryptoUrl, setCryptoUrl] = useState<string | null>(null);
 
   async function subscribe(tier: Tier) {
+    // Demo bypass: skip Stripe entirely and land on the dashboard.
+    if (DEMO_MODE) {
+      router.push("/dashboard?subscribed=demo");
+      return;
+    }
     setError(null);
     setLoadingTier(tier);
     try {
