@@ -33,7 +33,9 @@ const PLACEHOLDER_USER_ID = 'user_REPLACE_ME';
 function resolveUserId(): string {
   const cliArg = process.argv.find((a) => a.startsWith('--userId='));
   if (cliArg) return cliArg.slice('--userId='.length);
+  // Accept either SEED_USER_ID or DEMO_USER_ID for convenience.
   if (process.env.SEED_USER_ID) return process.env.SEED_USER_ID;
+  if (process.env.DEMO_USER_ID) return process.env.DEMO_USER_ID;
   return PLACEHOLDER_USER_ID;
 }
 
