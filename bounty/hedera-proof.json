@@ -1,25 +1,26 @@
 {
   "status": "confirmed",
   "network": "testnet",
-  "generatedAt": "2026-06-14T08:05:48.389Z",
+  "generatedAt": "2026-06-14T10:15:03.210Z",
   "hcs": {
     "topicId": "0.0.9225885",
-    "txId": "0.0.9225630@1781424344.173961581",
-    "sequenceNumber": 4,
+    "txId": "0.0.9225630@1781432099.756944239",
+    "sequenceNumber": 7,
     "hashscanUrl": "https://hashscan.io/testnet/topic/0.0.9225885",
-    "txUrl": "https://hashscan.io/testnet/transaction/0.0.9225630-1781424344-173961581",
-    "timestamp": "2026-06-14T08:05:48.389Z"
+    "txUrl": "https://hashscan.io/testnet/transaction/0.0.9225630-1781432099-756944239"
   },
   "hts": {
-    "note": "NFT mint skipped — HEDERA_NFT_TOKEN_ID not set, mint helper signature mismatch. HCS proof is primary bounty evidence.",
-    "tokenId": null,
-    "serial": null,
-    "transferTx": null
+    "tokenId": "0.0.9225911",
+    "serial": 2,
+    "transferTx": "0.0.9225630@1781432102.166779482",
+    "hashscanUrl": "https://hashscan.io/testnet/token/0.0.9225911",
+    "txUrl": "https://hashscan.io/testnet/transaction/0.0.9225630-1781432102-166779482"
   },
   "ens": {
     "name": "youhavebeenserved.eth",
-    "address": "0xd116A147A95f406a4A4F589c44d588cfE58ef6E0"
-  },
-  "app": "EPS — E-Process Server",
-  "bounty": "ETHGlobal NYC 2026 — Hedera + ENS"
+    "address": "0xd116A147A95f406a4A4F589c44d588cfE58ef6E0",
+    "agentHasENSIdentity": true,
+    "ensip25Compliant": true,
+    "ensip26Compliant": false
+  }
 }
