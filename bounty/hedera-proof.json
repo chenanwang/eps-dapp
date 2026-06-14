@@ -1,14 +1,25 @@
 {
-  "_note": "Populated by `pnpm tsx scripts/create-hedera-nft.ts` (or the hedera-nft-roundtrip workflow) running with HEDERA_OPERATOR_ID / HEDERA_OPERATOR_KEY. The fields below are PENDING until that round-trip runs against Hedera testnet — they intentionally hold no fabricated token/tx ids so no HashScan link 404s.",
-  "status": "pending",
+  "status": "confirmed",
   "network": "testnet",
-  "htsTokenId": null,
-  "htsNftSerial": null,
-  "htsTransferTx": null,
-  "defendantAccount": null,
-  "hcsTopicId": "0.0.9225885",
-  "mintTimestamp": null,
-  "hashscanNFT": null,
-  "hashscanTransfer": null,
-  "hashscanTopic": "https://hashscan.io/testnet/topic/0.0.9225885"
+  "generatedAt": "2026-06-14T08:05:48.389Z",
+  "hcs": {
+    "topicId": "0.0.9225885",
+    "txId": "0.0.9225630@1781424344.173961581",
+    "sequenceNumber": 4,
+    "hashscanUrl": "https://hashscan.io/testnet/topic/0.0.9225885",
+    "txUrl": "https://hashscan.io/testnet/transaction/0.0.9225630-1781424344-173961581",
+    "timestamp": "2026-06-14T08:05:48.389Z"
+  },
+  "hts": {
+    "note": "NFT mint skipped — HEDERA_NFT_TOKEN_ID not set, mint helper signature mismatch. HCS proof is primary bounty evidence.",
+    "tokenId": null,
+    "serial": null,
+    "transferTx": null
+  },
+  "ens": {
+    "name": "youhavebeenserved.eth",
+    "address": "0xd116A147A95f406a4A4F589c44d588cfE58ef6E0"
+  },
+  "app": "EPS — E-Process Server",
+  "bounty": "ETHGlobal NYC 2026 — Hedera + ENS"
 }
