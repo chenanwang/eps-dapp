@@ -1,0 +1,14 @@
+{
+  "_note": "Populated by `pnpm tsx scripts/create-hedera-nft.ts` (or the hedera-nft-roundtrip workflow) running with HEDERA_OPERATOR_ID / HEDERA_OPERATOR_KEY. The fields below are PENDING until that round-trip runs against Hedera testnet — they intentionally hold no fabricated token/tx ids so no HashScan link 404s.",
+  "status": "pending",
+  "network": "testnet",
+  "htsTokenId": null,
+  "htsNftSerial": null,
+  "htsTransferTx": null,
+  "defendantAccount": null,
+  "hcsTopicId": "0.0.9225885",
+  "mintTimestamp": null,
+  "hashscanNFT": null,
+  "hashscanTransfer": null,
+  "hashscanTopic": "https://hashscan.io/testnet/topic/0.0.9225885"
+}

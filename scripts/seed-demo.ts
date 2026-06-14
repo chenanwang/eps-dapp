@@ -46,18 +46,22 @@ function resolveUserId(): string {
 const demoRequests = [
   {
     // COMPLETE -> CONFIRMED: full lifecycle, on-chain proof present.
-    caseCaption: 'Doe v. Smith',
+    caseCaption: 'Doe v. Buterin',
     plaintiffName: 'Jane Doe',
-    defendantName: 'John Smith',
+    defendantName: 'Vitalik Buterin',
+    // Served to an ENS name (issue #148, Fix 1/5): the human-readable name renders
+    // prominently on the detail page with the resolved address beneath it.
     recipientWallet: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    recipientEnsName: 'vitalik.eth',
     status: ServiceStatus.CONFIRMED,
     txSignature: '5Vfd8mWm9Q3kq2cZ8sJpN7yR1tT4uX6wY9bC2dE3fG4hJ5kL6mN7pQ8rS9tU1vW2xY3z',
     slot: BigInt(287654321),
     blockTime: new Date('2026-06-13T18:00:00Z'),
     documentSha256: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
     // Hedera proof (Phase 3) — present on a fully-delivered notice. Topic id
-    // matches the live demo topic (0.0.9225885) so the Blockchain Proof panel
-    // deep-links to the real HashScan topic; HTS fields populate the NFT receipt.
+    // matches the live demo topic (0.0.9225885) so the Hedera Consensus Proof
+    // panel deep-links to the real HashScan topic; HTS fields populate the NFT
+    // receipt and the NFT-transfer-to-defendant proof row (Fix 3/4).
     hcsTxId: '0.0.9225885@1718340000.000000000',
     hcsTopicId: '0.0.9225885',
     hcsSequenceNumber: 1,
@@ -66,7 +70,9 @@ const demoRequests = [
     htsTokenId: '0.0.9225999',
     htsSerialNumber: 1,
     htsMirrorUrl: 'https://hashscan.io/testnet/token/0.0.9225999',
-    ensDisplayName: 'smith.eth',
+    htsNftSerial: 1,
+    htsTransferTx: '0.0.9225885@1718340002.000000000',
+    ensDisplayName: 'vitalik.eth',
     attestedAt: new Date('2026-06-13T17:55:00Z'),
   },
   {

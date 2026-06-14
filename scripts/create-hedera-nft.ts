@@ -1,13 +1,20 @@
-// scripts/create-hedera-nft.ts — create the EPS proof-of-service NFT collection.
+// scripts/create-hedera-nft.ts — Hedera HTS proof-of-service NFT ROUND-TRIP.
 //
-// Creates a NON_FUNGIBLE_UNIQUE token on Hedera Token Service (HTS) that EPS
-// mints one serial of per delivery (see lib/hedera/HederaService.ts → mintProofNFT).
-// Run this ONCE, then add the printed token id to Vercel as HEDERA_NFT_TOKEN_ID.
+// Mints one proof-of-service NFT and TRANSFERS it to a demo defendant account on
+// Hedera testnet, then writes the result to `bounty/hedera-proof.json`. This is
+// the real on-chain token transfer the Hedera "AI & Agentic Payments" bounty
+// requires (issue #148, Fix 4) — an HCS message alone does not qualify.
+//
+// Reuses an existing collection (HEDERA_NFT_TOKEN_ID) when set, otherwise creates
+// one. Reuses HEDERA_DEMO_DEFENDANT_ID when set, otherwise creates a fresh
+// testnet account (with unlimited auto-association) and logs its id.
 //
 // Requires (read from env — never hard-coded, CLAUDE.md hard rule #1):
-//   HEDERA_OPERATOR_ID   — e.g. 0.0.xxxxx
-//   HEDERA_OPERATOR_KEY   — DER-encoded private key (operator = treasury + supply key)
-//   HEDERA_NETWORK        — "testnet" (default) or "mainnet"
+//   HEDERA_OPERATOR_ID   — e.g. 0.0.xxxxx (operator = treasury + supply key)
+//   HEDERA_OPERATOR_KEY  — DER-encoded private key
+//   HEDERA_NETWORK       — "testnet" (default) or "mainnet"
+// Optional:
+//   HEDERA_NFT_TOKEN_ID, HEDERA_DEMO_DEFENDANT_ID, HEDERA_HCS_TOPIC_ID
 //
 // Run:
 //   pnpm tsx scripts/create-hedera-nft.ts
@@ -16,59 +23,52 @@
 
 try { process.loadEnvFile('.env.local'); } catch { /* .env.local is optional */ }
 
-import {
-  Client,
-  PrivateKey,
-  TokenCreateTransaction,
-  TokenType,
-  TokenSupplyType,
-} from '@hashgraph/sdk';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { mintAndTransferProofNFT } from '../lib/hedera/mintAndTransferProofNFT';
 
 async function main() {
-  const id = process.env.HEDERA_OPERATOR_ID;
-  const key = process.env.HEDERA_OPERATOR_KEY;
-  if (!id || !key) throw new Error('HEDERA_OPERATOR_ID and HEDERA_OPERATOR_KEY must be set.');
-
-  if (process.env.HEDERA_NFT_TOKEN_ID) {
-    console.log(`HEDERA_NFT_TOKEN_ID already set (${process.env.HEDERA_NFT_TOKEN_ID}); nothing to do.`);
-    return;
+  if (!process.env.HEDERA_OPERATOR_ID || !process.env.HEDERA_OPERATOR_KEY) {
+    throw new Error('HEDERA_OPERATOR_ID and HEDERA_OPERATOR_KEY must be set.');
   }
 
-  const isMainnet = process.env.HEDERA_NETWORK === 'mainnet';
-  if (isMainnet && process.env.HEDERA_ALLOW_MAINNET !== 'true') {
-    throw new Error('Refusing to create a token on mainnet. Set HEDERA_ALLOW_MAINNET=true to override.');
+  const network = process.env.HEDERA_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+  const hcsTopicId = process.env.HEDERA_HCS_TOPIC_ID ?? '0.0.9225885';
+
+  console.log(`Minting + transferring proof-of-service NFT on Hedera ${network}…`);
+
+  const result = await mintAndTransferProofNFT({
+    caseId: 'roundtrip-demo',
+    hcsTopicId,
+  });
+
+  if (!result) {
+    throw new Error('mintAndTransferProofNFT returned null — credentials missing.');
   }
 
-  const operatorKey = PrivateKey.fromStringDer(key);
-  const client = isMainnet ? Client.forMainnet() : Client.forTestnet();
-  client.setOperator(id, operatorKey);
+  const mintTimestamp = new Date().toISOString();
+  const proof = {
+    network,
+    htsTokenId: result.tokenId,
+    htsNftSerial: result.serial,
+    htsTransferTx: result.transferTx,
+    defendantAccount: result.defendantId,
+    defendantCreated: result.defendantCreated,
+    hcsTopicId,
+    mintTimestamp,
+    hashscanNFT: `https://hashscan.io/${network}/token/${result.tokenId}`,
+    hashscanTransfer: `https://hashscan.io/${network}/transaction/${result.transferTx}`,
+    hashscanTopic: `https://hashscan.io/${network}/topic/${hcsTopicId}`,
+    hashscanDefendant: `https://hashscan.io/${network}/account/${result.defendantId}`,
+  };
 
-  console.log(`Creating EPS proof-of-service NFT collection on Hedera ${isMainnet ? 'mainnet' : 'testnet'}…`);
+  const outDir = join(process.cwd(), 'bounty');
+  mkdirSync(outDir, { recursive: true });
+  const outFile = join(outDir, 'hedera-proof.json');
+  writeFileSync(outFile, JSON.stringify(proof, null, 2) + '\n');
 
-  try {
-    const tx = await new TokenCreateTransaction()
-      .setTokenName('EPS Proof of Service')
-      .setTokenSymbol('EPSPOS')
-      .setTokenType(TokenType.NonFungibleUnique)
-      .setSupplyType(TokenSupplyType.Infinite)
-      .setInitialSupply(0)
-      .setTreasuryAccountId(id)
-      .setSupplyKey(operatorKey)
-      .setAdminKey(operatorKey)
-      .freezeWith(client);
-
-    const signed = await tx.sign(operatorKey);
-    const response = await signed.execute(client);
-    const receipt = await response.getReceipt(client);
-    const tokenId = receipt.tokenId?.toString();
-
-    console.log(`\n✓ NFT collection created: ${tokenId}`);
-    console.log(`\nAdd this to Vercel env:`);
-    console.log(`  HEDERA_NFT_TOKEN_ID=${tokenId}`);
-    console.log(`\nView: https://hashscan.io/${isMainnet ? 'mainnet' : 'testnet'}/token/${tokenId}`);
-  } finally {
-    client.close();
-  }
+  console.log('\n✓ Round-trip complete. Wrote bounty/hedera-proof.json:\n');
+  console.log(JSON.stringify(proof, null, 2));
 }
 
 main().catch((err) => {

@@ -76,21 +76,6 @@ export default async function ServiceDetailPage({ params }: PageProps) {
     ? `https://explorer.solana.com/tx/${service.txSignature}?cluster=devnet`
     : null;
 
-  // HashScan topic link for the Hedera Consensus Service message anchored at
-  // intake (Section 4). Built from the stored topic id, deep-linked to the
-  // specific message when its sequence number was recorded.
-  const hcsTopicLink = service.hcsTopicId
-    ? `https://hashscan.io/testnet/topic/${service.hcsTopicId}` +
-      (service.hcsSequenceNumber != null ? `/message/${service.hcsSequenceNumber}` : "")
-    : null;
-
-  // HashScan token link for the HTS proof-of-service NFT (Section 5).
-  const htsTokenLink = service.htsTokenId
-    ? `https://hashscan.io/testnet/token/${service.htsTokenId}`
-    : null;
-
-  const hasBlockchainProof = !!(service.hcsTopicId || service.htsTokenId);
-
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-12">
       <div>
@@ -110,65 +95,149 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         <dl className="grid gap-6 sm:grid-cols-2">
           <Detail label="Plaintiff" value={service.plaintiffName} />
           <Detail label="Defendant" value={service.defendantName} />
-          <Detail label="Recipient wallet" value={service.recipientWallet} />
+          {/* Recipient — when an ENS name was served (issue #148, Fix 1) show the
+              human-readable name prominently with the resolved address beneath it;
+              otherwise fall back to the raw wallet address as before. */}
+          {service.recipientEnsName ? (
+            <div className="flex flex-col gap-1">
+              <dt className="text-foreground/60 text-xs font-medium uppercase tracking-wide">
+                Served to
+              </dt>
+              <dd className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <span aria-hidden>🔷</span>
+                  {service.recipientEnsName}
+                </span>
+                <span className="text-foreground/50 break-all pl-5 font-mono text-xs">
+                  ↳ {service.recipientWallet}
+                </span>
+              </dd>
+            </div>
+          ) : (
+            <Detail label="Recipient wallet" value={service.recipientWallet} />
+          )}
           <Detail label="Created" value={created} />
         </dl>
       </section>
 
-      {/* Blockchain proof — Hedera HCS consensus timestamp + HTS proof-of-service
-          NFT, anchored at intake (Sections 4 & 5). Shown for any status once the
-          proof exists so judges can verify it on HashScan immediately. */}
-      {hasBlockchainProof ? (
-        <section className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-6">
-          <div className="flex items-center gap-2">
-            <span aria-hidden>🔗</span>
-            <h2 className="text-lg font-semibold">Blockchain Proof</h2>
+      {/* Agent identity (issue #148, Fix 2) — the ENSIP-25/26 compliant AI process
+          server agent that anchors each proof. Surfaced so the on-chain agent
+          identity is visible to anyone reviewing a served notice. */}
+      <section className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-blue-400">🤖 Agent Identity (ENSIP-25)</h3>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-400">Process Server Agent</span>
+            <a
+              href="https://app.ens.domains/youhavebeenserved.eth"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-blue-400 hover:underline"
+            >
+              youhavebeenserved.eth ↗
+            </a>
           </div>
-          <p className="text-foreground/70 text-sm">
-            This request is anchored on the Hedera Consensus Service, producing an immutable,
-            independently verifiable proof. EPS facilitates service and generates court-ready proof.
-          </p>
-          <dl className="grid gap-4 sm:grid-cols-2">
-            {service.hcsTopicId ? (
-              <Detail label="HCS topic" value={service.hcsTopicId} />
-            ) : null}
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-400">Agent Address</span>
+            <span className="break-all font-mono text-xs text-gray-300">
+              0xd116A147A95f406a4A4F589c44d588cfE58ef6E0
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-400">Standard</span>
+            <div className="flex gap-2">
+              <a
+                href="https://docs.ens.domains/ensip/25/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:underline"
+              >
+                ENSIP-25 ↗
+              </a>
+              <a
+                href="https://docs.ens.domains/ensip/26/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:underline"
+              >
+                ENSIP-26 ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Hedera consensus proof (issue #148, Fix 3) — ALWAYS shown so a judge sees
+          the Hedera integration in every state. Progressive disclosure: once a
+          delivery is anchored the full proof chain (HCS topic + message, HTS NFT,
+          NFT transfer to the defendant) renders; before that, the demo topic and a
+          HashScan link explain what will be anchored on delivery confirmation. */}
+      <section className="rounded-lg border border-green-500/30 bg-green-950/20 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-green-400">⛓ Hedera Consensus Proof</h3>
+        {service.hcsTopicId ? (
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-400">HCS Topic</span>
+              <a
+                href={`https://hashscan.io/testnet/topic/${service.hcsTopicId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-green-400 hover:underline"
+              >
+                {service.hcsTopicId} ↗
+              </a>
+            </div>
             {service.hcsSequenceNumber != null ? (
-              <Detail label="HCS sequence #" value={String(service.hcsSequenceNumber)} />
-            ) : null}
-            {service.hcsConsensusTime ? (
-              <Detail label="Consensus time" value={service.hcsConsensusTime} />
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-400">Sequence #</span>
+                <span className="font-mono text-gray-300">{service.hcsSequenceNumber}</span>
+              </div>
             ) : null}
             {service.htsTokenId ? (
-              <Detail label="NFT token id" value={service.htsTokenId} />
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-400">Proof-of-Service NFT</span>
+                <a
+                  href={`https://hashscan.io/testnet/token/${service.htsTokenId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-green-400 hover:underline"
+                >
+                  {service.htsTokenId} ↗
+                </a>
+              </div>
             ) : null}
-            {service.htsSerialNumber != null ? (
-              <Detail label="NFT serial #" value={String(service.htsSerialNumber)} />
-            ) : null}
-          </dl>
-          <div className="flex flex-col gap-2">
-            {hcsTopicLink ? (
-              <a
-                href={hcsTopicLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                View HCS proof on HashScan ↗
-              </a>
-            ) : null}
-            {htsTokenLink ? (
-              <a
-                href={htsTokenLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                View proof-of-service NFT on HashScan ↗
-              </a>
+            {service.htsNftSerial != null && service.htsTransferTx ? (
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-400">NFT Transferred ✓</span>
+                <a
+                  href={`https://hashscan.io/testnet/transaction/${service.htsTransferTx}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-green-400 hover:underline"
+                >
+                  Serial #{service.htsNftSerial} → defendant wallet ↗
+                </a>
+              </div>
             ) : null}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <div className="text-sm text-gray-400">
+            <p>
+              🕐 Hedera consensus proof will be anchored to topic{" "}
+              <span className="font-mono text-green-400">0.0.9225885</span> upon delivery
+              confirmation.
+            </p>
+            <a
+              href="https://hashscan.io/testnet/topic/0.0.9225885"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block text-xs text-green-400 hover:underline"
+            >
+              View topic on HashScan ↗
+            </a>
+          </div>
+        )}
+      </section>
 
       {/* Status-conditional action area. */}
       {service.status === "STAGED" ? (
