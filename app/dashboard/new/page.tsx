@@ -1,10 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface FieldErrors {
   [field: string]: string[] | undefined;
+}
+
+interface ENSResolution {
+  address: string | null;
+  displayName: string;
+  wasENSName: boolean;
+  primaryName: string | null;
+}
+
+/**
+ * An ENS-like name is anything containing a dot that is not already an EVM/0x
+ * address — Solana base58 wallets never contain a dot, so a dot is a clean
+ * signal that the filer typed a name (e.g. `vitalik.eth`) to resolve. We mirror
+ * the /api/ens/resolve floor of 3 characters to avoid pointless round-trips.
+ */
+function looksLikeENSName(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < 3 || /^0x[0-9a-fA-F]{40}$/.test(trimmed)) return false;
+  return trimmed.includes(".");
 }
 
 /**
@@ -27,9 +46,63 @@ export default function NewServiceRequestPage() {
   const [courtOrderFlag, setCourtOrderFlag] = useState(false);
   const [attested, setAttested] = useState(false);
 
+  // Live ENS lookup for the recipient field. `resolvedAddress` holds the
+  // on-chain address an ENS name resolved to (submitted alongside the raw
+  // input); `ensResolving`/`ensError` drive the inline feedback below the field.
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [ensResolving, setEnsResolving] = useState(false);
+  const [ensError, setEnsError] = useState<string | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Debounced ENS resolution: 500ms after the filer stops typing an ENS-like
+  // name, resolve it. An AbortController cancels any in-flight request so a
+  // stale response can never overwrite the latest input's result.
+  useEffect(() => {
+    const value = recipientWallet.trim();
+
+    if (!looksLikeENSName(value)) {
+      setResolvedAddress(null);
+      setEnsResolving(false);
+      setEnsError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setEnsResolving(true);
+      setEnsError(null);
+      setResolvedAddress(null);
+      try {
+        const res = await fetch(`/api/ens/resolve?input=${encodeURIComponent(value)}`, {
+          signal: controller.signal,
+        });
+        const data: (ENSResolution & { error?: string }) = await res.json();
+        if (!res.ok || !data.address) {
+          setResolvedAddress(null);
+          setEnsError("Could not resolve ENS name");
+        } else {
+          setResolvedAddress(data.address);
+          setEnsError(null);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setResolvedAddress(null);
+        setEnsError("Could not resolve ENS name");
+      } finally {
+        // Don't flip off the spinner for a request we just aborted — its
+        // replacement is already starting and owns the loading state.
+        if (!controller.signal.aborted) setEnsResolving(false);
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [recipientWallet]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +118,11 @@ export default function NewServiceRequestPage() {
           plaintiffName,
           defendantName,
           recipientWallet,
+          // When the filer entered an ENS name, send the resolved on-chain
+          // address too so the server can record both; null when the input was
+          // a plain wallet or did not resolve.
+          recipientEnsName: looksLikeENSName(recipientWallet) ? recipientWallet.trim() : null,
+          recipientResolvedAddress: resolvedAddress,
           courtOrderFlag,
           attested,
         }),
@@ -137,7 +215,26 @@ export default function NewServiceRequestPage() {
             value={recipientWallet}
             onChange={(e) => setRecipientWallet(e.target.value)}
             className="rounded-lg border border-foreground/20 px-3 py-2 font-mono text-sm"
+            aria-describedby="recipientWallet-ens"
           />
+          <div id="recipientWallet-ens" aria-live="polite" className="min-h-[1rem]">
+            {ensResolving ? (
+              <p className="text-foreground/60 flex items-center gap-1.5 text-xs">
+                <Spinner />
+                Resolving ENS name…
+              </p>
+            ) : resolvedAddress ? (
+              <p className="flex items-center gap-1 text-xs text-green-700">
+                <span aria-hidden>↳</span>
+                <span>
+                  Resolves to <span className="font-mono">{resolvedAddress}</span>
+                </span>
+                <span aria-hidden>✓</span>
+              </p>
+            ) : ensError ? (
+              <p className="text-xs text-red-700">{ensError}</p>
+            ) : null}
+          </div>
         </Field>
 
         <label className="flex items-start gap-3 rounded-lg border border-foreground/15 p-4">
@@ -178,6 +275,26 @@ export default function NewServiceRequestPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+/** A small inline loading spinner shown while an ENS name is being resolved. */
+function Spinner() {
+  return (
+    <svg
+      className="h-3 w-3 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      role="img"
+      aria-label="Loading"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
   );
 }
 
