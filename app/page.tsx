@@ -4,7 +4,8 @@ const VALUE_PROPS = [
   {
     icon: "📬",
     title: "ENS Addressable",
-    body: "Serve any ENS name or wallet address.",
+    body:
+      "Serve any ENS name or wallet address. Served by youhavebeenserved.eth — an ENSIP-25 compliant AI agent with on-chain identity.",
   },
   {
     icon: "⛓",

@@ -188,6 +188,10 @@ export async function POST(req: Request): Promise<Response> {
       plaintiffName: input.plaintiffName,
       defendantName: input.defendantName,
       recipientWallet: resolvedWallet,
+      // Preserve the human-readable ENS name the filer served to (issue #148,
+      // Fix 1): prefer the form's raw `recipientEnsName`, fall back to the name
+      // the server resolved. Null when a raw address (not an ENS name) was used.
+      recipientEnsName: input.recipientEnsName ?? ensDisplayName ?? null,
       courtOrderFlag: input.courtOrderFlag,
       attestedAt: new Date(),
       status: "STAGED",

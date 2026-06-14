@@ -100,6 +100,11 @@ model ServiceRequest {
   plaintiffName   String
   defendantName   String
   recipientWallet String
+  /// The ENS name the filer entered for the recipient (e.g. "vitalik.eth"), when
+  /// they served to a name rather than a raw address. Preserved alongside the
+  /// resolved `recipientWallet` so the detail page can show the human-readable
+  /// name prominently (issue #148, Fix 1). Null when a raw address was served.
+  recipientEnsName String?
   courtOrderFlag  Boolean       @default(false)
   attestedAt      DateTime
   noticeToken     String?       @unique
@@ -132,6 +137,13 @@ model ServiceRequest {
   htsSerialNumber    Int?
   htsTxId            String?
   htsMirrorUrl       String?
+  /// HTS proof-of-service NFT round-trip (issue #148, Fix 4). When a delivery is
+  /// confirmed, EPS mints one NFT and TRANSFERS it to a demo defendant account on
+  /// Hedera testnet — a real token transfer (not just an HCS message). `htsNftSerial`
+  /// is the minted serial and `htsTransferTx` is the Hedera transaction id of the
+  /// transfer to the defendant, deep-linked on HashScan from the detail page.
+  htsNftSerial       Int?
+  htsTransferTx      String?
 
     /// First-access records (T-402). At most one row exists per notice (the
   /// `noticeId` unique constraint makes recording the first view idempotent).
