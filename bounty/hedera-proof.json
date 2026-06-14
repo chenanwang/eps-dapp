@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "htsTokenId": null,
+  "htsTokenIdStatus": "pending — run scripts/create-hedera-nft.ts via .github/workflows/hedera-nft-mint.yml. The Hedera operator secrets live in CI; they are not exposed to the issue-triggered runner, so the mint must execute in the workflow. The script creates the EPSPOS collection and mints serial #1, printing an EPS_HTS_PROOF=... line to extract htsTokenId/serialNumber/mintTransactionId.",
+  "serialNumber": null,
+  "mintTransactionId": null,
+  "hcsTopicId": "0.0.9225885",
+  "hcsTopicStatus": "live — confirmed via GET /api/hedera/status (connected: true, agentKitAvailable: true)",
+  "mintTimestamp": null,
+  "hashscanNFT": null,
+  "hashscanTopic": "https://hashscan.io/testnet/topic/0.0.9225885"
+}
