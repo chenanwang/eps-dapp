@@ -18,6 +18,13 @@ import { rateLimit, clientKey, rateLimitHeaders } from "@/lib/rate-limit";
 // (10/min/IP, T107) so a runaway client can't hammer auth + quota checks.
 const INTAKE_LIMIT = { limit: 10, windowMs: 60_000 };
 
+// Hard cap on the intake body (T107). The form's longest fields are bounded by
+// the zod schema (max 500 + 300 + 300 chars), so a legitimate request is well
+// under 8 KiB. Rejecting an oversized payload up front — by Content-Length when
+// the client declares it, and again after reading — stops a client from forcing
+// the route to buffer a large body into memory before validation.
+const MAX_BODY_BYTES = 8 * 1024;
+
 /**
  * Server-side validation schema for a service-request intake. Mirrors the
  * required fields of the dashboard form. The recipient wallet is checked for
@@ -73,9 +80,28 @@ export async function POST(req: Request): Promise<Response> {
     throw err;
   }
 
+  // (0) Request-size guard (T107). Reject before parsing: trust the declared
+  // Content-Length when present, then re-check the actual bytes read so a
+  // missing/lying header can't slip an oversized payload past the cap.
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Request body too large." },
+      { status: 413 },
+    );
+  }
+
+  const raw = await req.text();
+  if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Request body too large." },
+      { status: 413 },
+    );
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
