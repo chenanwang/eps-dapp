@@ -79,6 +79,7 @@ export default async function DashboardPage({
                 <th className="px-3 py-2 font-semibold">Service Name</th>
                 <th className="px-3 py-2 font-semibold">Case Ref</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">Recipient</th>
                 <th className="px-3 py-2 font-semibold">Notice</th>
                 <th className="px-3 py-2 font-semibold">Certificate</th>
                 <th className="px-3 py-2 font-semibold">Details</th>
@@ -107,6 +108,19 @@ export default async function DashboardPage({
                     </td>
                     <td className="px-3 py-2">{service.noticeToken ?? "—"}</td>
                     <td className="px-3 py-2">{status}</td>
+                    {/* Recipient ENS name (issue #159, Fix 4) — the human-readable
+                        name the notice was served to, or em-dash when a raw wallet
+                        was used. */}
+                    <td className="px-3 py-2">
+                      {service.recipientEnsName ? (
+                        <span className="flex items-center gap-1">
+                          <span aria-hidden>🔷</span>
+                          {service.recipientEnsName}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       {service.noticeToken ? (
                         <Link
