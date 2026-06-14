@@ -135,7 +135,10 @@ export default async function ServiceDetailPage({ params }: PageProps) {
             </p>
           </div>
           {/* Interactive upload + subscription-checkout actions (client component). */}
-          <ServiceActions />
+          <ServiceActions
+            serviceId={service.id}
+            demoMode={process.env.NEXT_PUBLIC_DEMO_MODE === "true"}
+          />
         </section>
       ) : null}
 

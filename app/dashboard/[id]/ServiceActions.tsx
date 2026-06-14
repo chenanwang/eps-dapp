@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+interface ServiceActionsProps {
+  /** `ServiceRequest.id` the actions operate on (used by the demo skip). */
+  serviceId: string;
+  /** Whether `NEXT_PUBLIC_DEMO_MODE` is enabled — gates the demo skip button. */
+  demoMode: boolean;
+}
 
 /**
  * Interactive actions for a STAGED service request (issue #113).
@@ -14,12 +22,41 @@ import Link from "next/link";
  *    POSTed to /api/checkout (the issue's per-request checkout doesn't fit the
  *    subscription model — see the page-level note). It's shown for orgs that may
  *    still need an active plan.
+ *  - Skip payment (demo): rendered only when `demoMode` is true (issue #125).
+ *    For live ETHGlobal demos it POSTs to /api/demo/skip-payment to advance the
+ *    request past the payment gate (STAGED → IN_PROGRESS) without Stripe, then
+ *    refreshes so the new "Processing" state renders. The server re-checks demo
+ *    mode + ownership, so the button can never bypass payment outside a demo.
  */
-export function ServiceActions() {
+export function ServiceActions({ serviceId, demoMode }: ServiceActionsProps) {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+
+  async function onSkipPayment() {
+    setError(null);
+    setSkipping(true);
+    try {
+      const res = await fetch("/api/demo/skip-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceId }),
+      });
+      const data: { error?: string } = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not skip payment.");
+      }
+      // Status is now IN_PROGRESS — re-render the server component to show it.
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not skip payment.");
+    } finally {
+      setSkipping(false);
+    }
+  }
 
   async function onUpload(e: React.FormEvent) {
     e.preventDefault();
@@ -79,12 +116,25 @@ export function ServiceActions() {
         </p>
       ) : null}
 
-      <p className="text-foreground/60 text-sm">
-        Need an active plan?{" "}
-        <Link href="/pricing" className="text-blue-600 hover:underline">
-          Proceed to checkout →
-        </Link>
-      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-foreground/60 text-sm">
+          Need an active plan?{" "}
+          <Link href="/pricing" className="text-blue-600 hover:underline">
+            Proceed to checkout →
+          </Link>
+        </p>
+
+        {demoMode ? (
+          <button
+            type="button"
+            onClick={onSkipPayment}
+            disabled={skipping}
+            className="inline-flex w-fit items-center rounded-lg border border-dashed border-amber-500 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+          >
+            {skipping ? "Skipping…" : "Skip payment (demo)"}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

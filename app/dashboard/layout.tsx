@@ -25,7 +25,9 @@ export default function DashboardLayout({
             >
               ＋ New request
             </Link>
-            <UserButton afterSignOutUrl="/" />
+            {/* Clerk v7 takes `afterSignOutUrl` on <ClerkProvider> (app/layout.tsx),
+                not on <UserButton>. */}
+            <UserButton />
           </div>
         </nav>
       </header>
