@@ -12,17 +12,17 @@ Multi-chain: Solana (live) · Ethereum/Base/Arbitrum/Hedera EVM · Bitcoin (road
 
 | Resource | Link |
 |----------|------|
-| Live app | `https://<your-vercel-deploy>.vercel.app` _(set after deploy)_ |
-| Health check | `https://<your-vercel-deploy>.vercel.app/api/health` → `{"status":"ok","db":"connected","version":"1.0.0"}` |
-| ENS resolve API | `https://<your-vercel-deploy>.vercel.app/api/ens/resolve?input=vitalik.eth` |
+| Live app | https://eps-dapp.vercel.app |
+| Health check | https://eps-dapp.vercel.app/api/health → `{"status":"ok","db":"connected","version":"1.0.0"}` |
+| ENS resolve API | https://eps-dapp.vercel.app/api/ens/resolve?input=vitalik.eth |
 | Hedera proofs (mirror node) | https://testnet.mirrornode.hedera.com |
 | Solana deliveries (devnet) | https://explorer.solana.com/?cluster=devnet |
+| Submission writeup | [`docs/ETHGLOBAL_SUBMISSION.md`](docs/ETHGLOBAL_SUBMISSION.md) |
 | Demo screenshots | [`docs/screenshots/`](docs/screenshots/README.md) |
-| Deployment guide | [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md) |
+| Deployment guide | [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md) · [worker](docs/WORKER_DEPLOYMENT.md) |
 
-> Replace `<your-vercel-deploy>` with the deployed host. The worker
-> (`pnpm worker`) runs separately from the Vercel app — see the deployment
-> checklist.
+> The worker (`pnpm worker`) runs separately from the Vercel app — see
+> [`docs/WORKER_DEPLOYMENT.md`](docs/WORKER_DEPLOYMENT.md).
 
 ### Bounty integration package versions (proof)
 
