@@ -217,7 +217,7 @@ export default async function StandardPage() {
       {/* Annex A */}
       <Section id="annexa" title="Annex A — Self-Assessment Conformance Checklist">
         <div className="space-y-2">
-          {[
+          {([
             ['Service Packet conforms to Section 6 schema', true],
             ['packet_id is a valid UUID v4', true],
             ['document_hash is SHA-256 of canonical document bundle', true],
@@ -232,8 +232,8 @@ export default async function StandardPage() {
             ['Documents are NOT stored in full on-chain', true],
             ['Transport uses TLS 1.3 minimum (Vercel default)', true],
             ['Verification API endpoint publicly accessible', true],
-          ].map(([req, pass]) => (
-            <div key={req} className="flex items-start gap-3 rounded-lg bg-white/5 px-4 py-2.5">
+          ] as [string, boolean][]).map(([req, pass], i) => (
+            <div key={i} className="flex items-start gap-3 rounded-lg bg-white/5 px-4 py-2.5">
               <span className={`text-sm font-bold ${pass ? 'text-green-400' : 'text-yellow-400'}`}>
                 {pass ? '✓' : '○'}
               </span>
