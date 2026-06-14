@@ -1,0 +1,23 @@
+name: Provision Agent Wallet (one-time)
+on:
+  workflow_dispatch:
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Create agent wallet
+        env:
+          DYNAMIC_BEARER_TOKEN: dyn_aSQYijSHt3aXBntDhYUj0BkMnj7bSBys9xUO29FOGihzpSSces1Pvt3L
+          NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: c954ba86-98f3-4256-82ef-59e65a80acaa
+          DYNAMIC_WALLET_PASSWORD: eps-agent-secure-pw-2026
+        run: pnpm tsx scripts/create-agent-wallet.ts 2>&1 | tee /tmp/wallet-out.txt && cat /tmp/wallet-out.txt
