@@ -14,12 +14,28 @@ import { prisma } from "@/lib/db";
  * `NoticeAccess` and `CertificatePdf`). Requests are owned by the filer's Clerk
  * `userId` (issue #112), so a user with no organization still sees their work.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ staged?: string; subscribed?: string; paid?: string }>;
+}) {
   // userId comes from the verified Clerk session token, never the client.
   const { userId } = await auth();
   if (!userId) {
     redirect("/sign-in");
   }
+
+  // Success banners driven by redirect query params: staged=1 after a service
+  // request is filed; subscribed/paid=demo after a demo-mode payment bypass.
+  const { staged, subscribed, paid } = await searchParams;
+  const banner =
+    staged === "1"
+      ? "Service request staged successfully."
+      : subscribed === "demo"
+        ? "Demo subscription activated — no payment was taken."
+        : paid === "demo"
+          ? "Demo crypto payment confirmed — no payment was taken."
+          : null;
 
   // Services are scoped to the caller's own Clerk user id — a request belongs to
   // the filer who staged it, regardless of whether they have an organization.
@@ -34,6 +50,15 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl p-8">
+      {banner ? (
+        <div
+          role="status"
+          className="mb-6 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800"
+        >
+          {banner}
+        </div>
+      ) : null}
+
       <h1 className="mb-6 text-2xl font-bold">Your services</h1>
 
       {services.length === 0 ? (
