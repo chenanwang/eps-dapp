@@ -130,7 +130,7 @@ export async function mintAndTransferProofNFT(
       "https://eps-dapp.vercel.app/api/nft/meta?topic=" + hcsTopic + "&seq=" + hcsSeq;
     let metadata = Buffer.from(metaUri, "utf8");
     if (metadata.length > 100) {
-      metadata = metadata.subarray(0, 100);
+      metadata = metadata.subarray(0, 99);
     }
     const mintTx = await new TokenMintTransaction()
       .setTokenId(tokenId)
